@@ -5,33 +5,40 @@
 [![LiveKit](https://img.shields.io/badge/LiveKit-2.23.0-purple?logo=webrtc)](https://livekit.io/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
 [![Render Deploy](https://img.shields.io/badge/Deploy-Render-46E3B7?logo=render)](https://render.com/)
-[![Tests](https://img.shields.io/badge/Tests-15%20Passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-26%20Passed-brightgreen)](tests/)
 
-**OneGuest Studio** is a private, high-fidelity remote recording and 1-on-1 interview platform inspired by Riverside's broadcast recording workflow. Built for creator interviews, executive deep-dives, and remote podcasts using **Next.js App Router (Turbopack)**, **React 19**, **LiveKit WebRTC**, **Tailwind CSS v4**, and custom **WebGL shader pipelines**.
+**OneGuest Studio** is a private, high-fidelity remote recording and 1-on-1 interview platform inspired by Riverside's core broadcast workflow. Purpose-built exclusively for creator interviews, remote podcasts, and executive conversations, OneGuest Studio delivers **4 isolated, uncompressed stems** per interview (Host Video, Host Audio, Guest Video, Guest Audio) alongside an in-studio script teleprompter and zero-account guest onboarding.
 
 ---
 
 ## Key Features
 
-### 1. Riverside-Inspired Studio & Workspace Dashboard
-- **Creator Dashboard (`/`)**: Dark charcoal aesthetic (`#0c0d12`, `#141722`), quick-launch creator card, copyable guest invite links, guest code parser, session metrics, and live interview session deck.
-- **Green Room Preflight (`/join` & `/host`)**: 7:5 two-column pre-studio console with real-time hardware stream preview, Web Audio API VU meter, device selectors (camera/mic/speaker with test sound chime), and acoustic headphone guidance.
-- **Recording Stage (`/room/[roomId]`)**: Balanced 1-on-1 broadcast split screen and speaker focus views, real-time speaking indicators, role badges ("HOST" / "GUEST"), session duration counter, and WebRTC connection quality badges.
-- **Docked Studio Toolbar**: Quick toggles for microphone, camera, screen sharing, layout switching, selfie enhancer drawer, host-controlled recording trigger, and room exit.
+### 1. Riverside-Inspired 4-Tab Workspace & Navigation
+- **Dashboard**: High-level studio overview, quick-launch studio card, quick guest link parser, recent interview cards with video thumbnail headers, and dual Host/Guest avatar badges.
+- **Interviews**: Complete interview manager with search, filter tabs (*All*, *Scheduled*, *Active*, *Completed*), unique guest invitation links, private passcode support, and one-click studio entry.
+- **Recordings Library**: Comprehensive participant track cards grouping Host stems (Video 1080p + Audio 48kHz Opus) and Guest stems (Video 1080p + Audio 48kHz Opus), raw audio & video playback modals, single-stem downloads, and a master *"Download All Separate Tracks"* batch exporter.
+- **Settings & Privacy**: Local audio/video hardware test suite, 4-stem multi-track architecture diagrams, disk storage path configuration (`RECORDINGS_STORAGE_PATH`), and guest privacy specifications.
 
-### 2. Real-Time Hardware-Accelerated Selfie Enhancement
-- **Bilateral Skin Smoothing**: 9-tap bilateral WebGL shader kernel that softens facial skin while keeping eyes, eyebrows, and glasses sharp.
-- **Skin Tone Detection (YCbCr)**: Targets natural human skin pigment ranges (`Cb ~ 0.43`, `Cr ~ 0.60`) to avoid blurring backgrounds or clothing.
-- **Studio Lighting & 4500K Tone Curve**: Lifts under-eye shadows and diffuse ambient lighting with a warm 4500K ring-light curve and highlight protection.
-- **Split-Screen Comparison Mode**: Live vertical dividing slider comparing raw camera input (left) against enhanced output (right).
-- **WebRTC Pipeline Integration**: Operates as a native LiveKit `TrackProcessor<Track.Kind.Video>`, transmitting processed frames directly to the remote participant and capturing them into master recording files.
+### 2. Critical Requirement: Isolated 4-Stem Recording Engine
+The platform solves the common single-track bug by capturing four independent media streams simultaneously:
+1. **Host Video (1080p)**: Pristine local camera stream recorded via `MediaRecorder` with VP9/H.264 codecs.
+2. **Host Audio (48kHz)**: Isolated host microphone stream with zero guest bleed.
+3. **Guest Video (1080p)**: Subscribed remote WebRTC track captured directly from guest publication.
+4. **Guest Audio (48kHz)**: Dedicated remote guest microphone stream (Opus/WAV) ready for DaVinci Resolve or Premiere.
+5. **Bonus Composite (720p/1080p)**: Synchronized side-by-side split screen for quick social media clips or archival preview.
+- **Pre-Flight Safety Guard**: Warns the host and blocks silent partial recording if the guest has not connected or their tracks are muted.
+- **Progressive Upload & Verification**: Uploads chunks to `/api/recordings/upload` and physically verifies files on disk before marking sessions as complete.
+- **Tab Exit Protection**: `beforeunload` warning prevents accidental browser closure during active recording or upload.
 
-### 3. Local Multi-Track Recording Engine
-- **Isolated Participant Recording**: Client-side recording at 1080p 3.5 Mbps video / 128 kbps Opus audio using browser `MediaRecorder`.
-- **Synchronized Data Channel Signals**: Host-authorized recording triggers coordinated via LiveKit data channel broadcasts.
-- **Chunked Upload Pipeline**: Recordings upload directly to `/api/recordings/upload` and are indexed in `data/recordings/<roomId>/manifest.json`.
-- **Recordings Library**: In-app recording browser with track metadata, file sizes, embedded HTML5 `<video>` preview modal, and direct downloads.
-- **Path Traversal Security**: Strict filename sanitization blocking directory escape attempts.
+### 3. In-Studio Teleprompter & Notes Overlay
+- **Floating Script Drawer**: Auto-scrolling teleprompter embedded directly in the studio stage.
+- **Customizable Pace**: Play/Pause controls with variable scrolling speed (`1x` to `5x`) and adjustable font sizes (`14px` to `24px`).
+- **Auto-Persistence**: Script and interview talking points automatically sync to browser `localStorage` per room ID.
+
+### 4. Zero-Account Guest Joining & Green Room
+- **Direct Link Onboarding (`/join?code=og-xxx`)**: Guests join via private invite link with zero account creation or payment barriers.
+- **Green Room Pre-Flight**: Live camera preview, real-time Web Audio API VU meter, device selectors with test sound chimes, and headphone advisory.
+- **Server-Side Token Security**: LiveKit tokens minted securely on-demand via server-side API; secrets are never leaked in client links.
 
 ---
 
@@ -85,7 +92,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Run the automated test suite:
 ```bash
-# Run all 15 unit tests
+# Run all 26 unit and E2E simulation tests
 npm test
 
 # Run TypeScript type-checking
@@ -96,10 +103,13 @@ npm run build
 ```
 
 The test suite covers:
+- **`tests/recordingEndToEnd.test.mjs`**: End-to-end multi-participant studio recording simulation, 4-stem isolation verification, and missing guest safety pre-flight check.
+- **`tests/recordingEngine.test.mjs`**: Codec negotiation (WebM VP9/Opus & MP4), track readiness validator, and participant search logic.
+- **`tests/recordingStore.test.mjs`**: Multi-track persistence, manifest generation, 4-stem physical verification, and path traversal security.
+- **`tests/guestFlow.test.mjs`**: URL/code parser for guest links and credential leakage prevention.
 - **`tests/tokenService.test.mjs`**: Token validation, placeholder credential detection, and JWT grant signing.
 - **`tests/selfieEnhancer.test.mjs`**: YCbCr skin tone detection math and shadow lift tone curve.
 - **`tests/interviewStore.test.mjs`**: Session CRUD, room lookup, and passcode validation.
-- **`tests/recordingStore.test.mjs`**: Multi-track persistence, manifest generation, and path traversal security.
 - **`tests/health.test.mjs`**: Render deployment monitoring endpoint schema and status.
 - **`tests/utils.test.mjs`**: ID generators, guest codes, initials, and Tailwind merging.
 

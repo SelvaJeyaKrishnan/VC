@@ -58,7 +58,7 @@ function ensureDirectoryExists(dir: string) {
 
 export const recordingStore = {
   getRoomDir(roomId: string): string {
-    const dir = path.join(RECORDINGS_DIR, roomId);
+    const dir = path.join(/*turbopackIgnore: true*/ RECORDINGS_DIR, roomId);
     ensureDirectoryExists(dir);
     return dir;
   },
@@ -273,7 +273,7 @@ export const recordingStore = {
   getAllSessions(): RecordingSession[] {
     ensureDirectoryExists(RECORDINGS_DIR);
     try {
-      const rooms = fs.readdirSync(RECORDINGS_DIR);
+      const rooms = fs.readdirSync(/*turbopackIgnore: true*/ RECORDINGS_DIR);
       const sessions: RecordingSession[] = [];
       for (const room of rooms) {
         const manifest = this.getManifest(room);

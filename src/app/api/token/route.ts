@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  resolveLiveKitCredentials,
   validateTokenCredentials,
   validateTokenParams,
   createLiveKitToken,
@@ -49,12 +50,13 @@ async function handleTokenRequest({
   name: string;
   role: "host" | "guest";
 }) {
-  const credCheck = validateTokenCredentials({
+  const credentials = resolveLiveKitCredentials({
     apiKey: process.env.LIVEKIT_API_KEY,
     apiSecret: process.env.LIVEKIT_API_SECRET,
     livekitUrl: process.env.LIVEKIT_URL,
   });
 
+  const credCheck = validateTokenCredentials(credentials);
   if (!credCheck.valid) {
     return NextResponse.json({ error: credCheck.error }, { status: credCheck.status || 500 });
   }
@@ -65,9 +67,9 @@ async function handleTokenRequest({
   }
 
   const tokenData = await createLiveKitToken({
-    apiKey: process.env.LIVEKIT_API_KEY!,
-    apiSecret: process.env.LIVEKIT_API_SECRET!,
-    livekitUrl: process.env.LIVEKIT_URL!,
+    apiKey: credentials.apiKey,
+    apiSecret: credentials.apiSecret,
+    livekitUrl: credentials.livekitUrl,
     room: room!,
     identity: identity!,
     name,

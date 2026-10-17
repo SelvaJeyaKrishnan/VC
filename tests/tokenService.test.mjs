@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isPlaceholderCredential,
+  cleanCredential,
   normalizeLiveKitUrl,
+  resolveLiveKitCredentials,
   validateTokenCredentials,
   validateTokenParams,
   createLiveKitToken,
@@ -25,7 +27,15 @@ test("isPlaceholderCredential detects all dummy/placeholder values and protects 
   assert.strictEqual(isPlaceholderCredential("K2J48fkjsdf923485720498572093845"), false);
 });
 
-test("normalizeLiveKitUrl converts web URLs into valid WebSocket protocols", () => {
+test("cleanCredential removes prefixes, quotes, and isolates single token", () => {
+  assert.strictEqual(cleanCredential("API12345"), "API12345");
+  assert.strictEqual(cleanCredential('"API12345"'), "API12345");
+  assert.strictEqual(cleanCredential("'API12345'"), "API12345");
+  assert.strictEqual(cleanCredential("LIVEKIT_API_KEY=API12345", "LIVEKIT_API_KEY"), "API12345");
+  assert.strictEqual(cleanCredential("LIVEKIT_API_KEY = 'API12345'", "LIVEKIT_API_KEY"), "API12345");
+});
+
+test("normalizeLiveKitUrl converts web URLs and handles multi-line pasted blocks safely", () => {
   assert.strictEqual(normalizeLiveKitUrl(""), "");
   assert.strictEqual(
     normalizeLiveKitUrl("https://studio.livekit.cloud"),
@@ -43,6 +53,49 @@ test("normalizeLiveKitUrl converts web URLs into valid WebSocket protocols", () 
     normalizeLiveKitUrl("ws://127.0.0.1:7880"),
     "ws://127.0.0.1:7880"
   );
+
+  // Quoted URL
+  assert.strictEqual(
+    normalizeLiveKitUrl('"wss://studio.livekit.cloud"'),
+    "wss://studio.livekit.cloud"
+  );
+
+  // URL with LIVEKIT_URL= prefix
+  assert.strictEqual(
+    normalizeLiveKitUrl("LIVEKIT_URL=wss://studio.livekit.cloud/"),
+    "wss://studio.livekit.cloud"
+  );
+
+  // Multi-line accidental bulk paste from .env (the exact production issue discovered on Render)
+  const pastedEnvBlock = `wss://one-guest-4ys3yv0s.livekit.cloud
+LIVEKIT_API_KEY=APIHucHTekxCSqa
+LIVEKIT_API_SECRET=tgyfw00cyMNb7gubnX3evVbLAvezIAGeMQZYk1JH6qZB`;
+
+  const clean = normalizeLiveKitUrl(pastedEnvBlock);
+  assert.strictEqual(clean, "wss://one-guest-4ys3yv0s.livekit.cloud");
+  assert.strictEqual(clean.includes("\n"), false, "Clean URL must never contain newlines");
+  assert.strictEqual(clean.includes("APIHucHTekxCSqa"), false, "Clean URL must never contain secrets");
+});
+
+test("resolveLiveKitCredentials extracts credentials even if bulk-pasted into LIVEKIT_URL", () => {
+  const pastedEnvBlock = `wss://one-guest-4ys3yv0s.livekit.cloud
+LIVEKIT_API_KEY=APIHucHTekxCSqa
+LIVEKIT_API_SECRET=tgyfw00cyMNb7gubnX3evVbLAvezIAGeMQZYk1JH6qZB`;
+
+  const resolved = resolveLiveKitCredentials({ livekitUrl: pastedEnvBlock });
+  assert.strictEqual(resolved.livekitUrl, "wss://one-guest-4ys3yv0s.livekit.cloud");
+  assert.strictEqual(resolved.apiKey, "APIHucHTekxCSqa");
+  assert.strictEqual(resolved.apiSecret, "tgyfw00cyMNb7gubnX3evVbLAvezIAGeMQZYk1JH6qZB");
+
+  // Verify normal individual variables also resolve cleanly
+  const normalResolved = resolveLiveKitCredentials({
+    livekitUrl: "https://studio.livekit.cloud",
+    apiKey: "API123",
+    apiSecret: "secret456",
+  });
+  assert.strictEqual(normalResolved.livekitUrl, "wss://studio.livekit.cloud");
+  assert.strictEqual(normalResolved.apiKey, "API123");
+  assert.strictEqual(normalResolved.apiSecret, "secret456");
 });
 
 test("validateTokenCredentials rejects missing or placeholder environment variables", () => {
@@ -88,7 +141,7 @@ test("validateTokenParams validates required room and participant identity", () 
   assert.strictEqual(validParams.valid, true);
 });
 
-test("createLiveKitToken generates genuine signed LiveKit JWT with correct grants and metadata", async () => {
+test("createLiveKitToken generates genuine signed LiveKit JWT with clean URL and correct grants", async () => {
   const result = await createLiveKitToken({
     apiKey: "APIACTUALKEY123456",
     apiSecret: "secret_actual_val_123456789012345678901234",

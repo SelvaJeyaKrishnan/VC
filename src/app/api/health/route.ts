@@ -1,12 +1,21 @@
+import { resolveLiveKitCredentials, isPlaceholderCredential } from "../../../lib/tokenService.ts";
+
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const credentials = resolveLiveKitCredentials({
+    apiKey: process.env.LIVEKIT_API_KEY,
+    apiSecret: process.env.LIVEKIT_API_SECRET,
+    livekitUrl: process.env.LIVEKIT_URL,
+  });
+
   const isLiveKitConfigured = Boolean(
-    process.env.LIVEKIT_URL &&
-    process.env.LIVEKIT_API_KEY &&
-    process.env.LIVEKIT_API_SECRET &&
-    !process.env.LIVEKIT_URL.includes("your-project") &&
-    !process.env.LIVEKIT_API_KEY.includes("devkey")
+    credentials.apiKey &&
+    credentials.apiSecret &&
+    credentials.livekitUrl &&
+    !isPlaceholderCredential(credentials.apiKey) &&
+    !isPlaceholderCredential(credentials.apiSecret) &&
+    !isPlaceholderCredential(credentials.livekitUrl)
   );
 
   return Response.json({

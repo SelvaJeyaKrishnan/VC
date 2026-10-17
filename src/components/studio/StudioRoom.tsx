@@ -29,10 +29,18 @@ export function StudioRoom({
   onDisconnected,
   onError,
 }: StudioRoomProps) {
+  // Defensively sanitize serverUrl to guarantee single-line WebSocket protocol
+  let cleanServerUrl = (serverUrl || "").trim().split(/[\s\r\n]+/)[0];
+  if (cleanServerUrl.startsWith("https://")) {
+    cleanServerUrl = "wss://" + cleanServerUrl.slice(8);
+  } else if (cleanServerUrl.startsWith("http://")) {
+    cleanServerUrl = "ws://" + cleanServerUrl.slice(7);
+  }
+
   return (
     <LiveKitRoom
       token={token}
-      serverUrl={serverUrl}
+      serverUrl={cleanServerUrl}
       connect={true}
       video={videoOptions ?? true}
       audio={audioOptions ?? true}

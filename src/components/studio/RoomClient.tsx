@@ -109,6 +109,11 @@ export function RoomClient({
           throw new Error(data.error || `Failed to connect (Status ${res.status})`);
         }
 
+        // Defensively sanitize serverUrl on the client
+        if (data && data.serverUrl) {
+          data.serverUrl = data.serverUrl.trim().split(/[\s\r\n]+/)[0];
+        }
+
         setTokenData(data);
       } catch (err: unknown) {
         const msg =

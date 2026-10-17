@@ -417,20 +417,6 @@ export function DashboardLayout() {
             </button>
           </nav>
         </div>
-
-        {/* Sidebar Footer: Production Engine Status */}
-        <div className="rounded-xl border border-[#1e2330] bg-[#14161f] p-3 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-semibold text-slate-200">Recording Engine</span>
-            </div>
-            <span className="text-[10px] text-emerald-400 font-mono font-bold">READY</span>
-          </div>
-          <p className="text-[10px] text-slate-400 leading-tight">
-            4-stem lossless isolated track capture enabled
-          </p>
-        </div>
       </aside>
 
       {/* 2. MAIN WORKSPACE */}
@@ -547,31 +533,27 @@ export function DashboardLayout() {
           {/* ========================================================= */}
           {activeTab === "dashboard" && (
             <div className="space-y-8">
-              {/* Studio Welcome Banner (Clean, Focused Header) */}
-              <div className="rounded-2xl border border-[#202534] bg-gradient-to-r from-[#141724] via-[#11131c] to-[#0e1017] p-6 shadow-xl space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
-                    Creator Interview Studio
-                  </span>
+              {/* Studio Overview Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1c202d]">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                    Studio Overview
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    1-on-1 remote creator interviews with isolated host and guest track recording.
+                  </p>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                  Welcome to OneGuest Studio
-                </h2>
-                <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                  A dedicated remote recording platform for 1-on-1 creator interviews. Capture pristine, isolated host & guest audio and video tracks ready for post-production editing.
-                </p>
               </div>
 
-              {/* 4 Real Data Metric Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* 3 High-Impact Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
                   <div className="flex items-center justify-between text-slate-400">
                     <span className="text-[11px] font-bold uppercase tracking-wider">Total Interviews</span>
                     <Radio className="h-4 w-4 text-purple-400" />
                   </div>
                   <div className="text-2xl font-extrabold text-white">{interviews.length}</div>
-                  <p className="text-[11px] text-slate-400">Scheduled & active sessions</p>
+                  <p className="text-[11px] text-slate-400">Scheduled & active studio rooms</p>
                 </div>
 
                 <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
@@ -590,17 +572,6 @@ export function DashboardLayout() {
                   </div>
                   <div className="text-2xl font-extrabold text-white">{totalRecordedStems}</div>
                   <p className="text-[11px] text-slate-400">Host & Guest separate files</p>
-                </div>
-
-                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Completed Sessions</span>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  </div>
-                  <div className="text-2xl font-extrabold text-emerald-400">
-                    {interviews.filter((i) => i.status === "completed" || !!recordingsByRoom[i.id]).length}
-                  </div>
-                  <p className="text-[11px] text-slate-400">Finished & verified recordings</p>
                 </div>
               </div>
 

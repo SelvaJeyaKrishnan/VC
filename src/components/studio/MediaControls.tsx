@@ -409,15 +409,13 @@ export function MediaControls({
                 <span>Saving Track...</span>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={onStartRecording}
-                className="flex items-center gap-2 rounded-full border border-slate-700 bg-[#161822] px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white cursor-pointer"
-                title="Trigger local backup recording"
+              <div
+                className="hidden sm:flex items-center gap-1.5 rounded-full border border-[#232736] bg-[#12141c] px-3.5 py-1.5 text-xs text-slate-400"
+                title="Host coordinates studio recording"
               >
-                <Disc className="h-3.5 w-3.5 text-slate-400" />
-                <span>Local REC</span>
-              </button>
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                <span className="text-[11px] font-medium">Host Controls REC</span>
+              </div>
             )
           )}
 
@@ -457,13 +455,6 @@ export function MediaControls({
           >
             <PhoneOff className="h-4.5 w-4.5" />
           </button>
-        </div>
-
-        {/* Right Section: Session Room Identifier */}
-        <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-400">
-          <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
-            OneGuest Studio
-          </span>
         </div>
       </div>
 

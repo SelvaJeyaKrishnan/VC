@@ -226,77 +226,114 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
 
               {/* Tracks Grid */}
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {session.tracks.map((track) => (
-                  <div
-                    key={track.fileName}
-                    className="flex items-center justify-between rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 hover:border-[#2f3549] transition-colors"
-                  >
-                    <div className="space-y-1 min-w-0 pr-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
-                            track.role === "host"
-                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                              : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                          }`}
+                {session.tracks.map((track) => {
+                  const isAudio =
+                    track.trackType === "audio" || track.mimeType.startsWith("audio");
+                  const isComposite = track.trackType === "composite";
+
+                  let trackLabel = track.fileName;
+                  if (track.fileName.includes("host-video")) trackLabel = "Host Video Track";
+                  else if (track.fileName.includes("host-audio")) trackLabel = "Host Microphone Audio";
+                  else if (track.fileName.includes("guest-video")) trackLabel = "Guest Video Track";
+                  else if (track.fileName.includes("guest-audio")) trackLabel = "Guest Microphone Audio";
+                  else if (track.fileName.includes("composite")) trackLabel = "Side-by-Side Interview Composite";
+
+                  return (
+                    <div
+                      key={track.fileName}
+                      className="flex items-center justify-between rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 hover:border-[#2f3549] transition-colors"
+                    >
+                      <div className="space-y-1 min-w-0 pr-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 ${
+                              isComposite
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                : track.role === "host"
+                                ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                            }`}
+                          >
+                            {isAudio ? <Volume2 className="h-2.5 w-2.5" /> : <Video className="h-2.5 w-2.5" />}
+                            <span>{track.role}</span>
+                          </span>
+
+                          <span className="text-xs font-bold text-slate-200 truncate">
+                            {trackLabel}
+                          </span>
+
+                          {track.offsetMs !== undefined && track.offsetMs > 0 && (
+                            <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-mono text-slate-400">
+                              +{(track.offsetMs / 1000).toFixed(1)}s
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                          <span className="font-semibold text-slate-300">{formatFileSize(track.fileSize)}</span>
+                          <span>•</span>
+                          <span>
+                            {track.mimeType.includes("mp4")
+                              ? isAudio
+                                ? "MP4 (AAC Audio)"
+                                : "MP4 (H.264 Video)"
+                              : isAudio
+                              ? "WEBM (48kHz Opus Audio)"
+                              : "WEBM (VP9 Video)"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewTrack({
+                              track,
+                              roomId: session.roomId,
+                              sessionTitle,
+                            })
+                          }
+                          className="flex items-center gap-1.5 rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+                          title="Preview in browser"
                         >
-                          {track.role}
-                        </span>
-                        <span className="text-xs font-bold text-slate-200 truncate">
-                          {track.participantName}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                        <span className="font-semibold text-slate-300">{formatFileSize(track.fileSize)}</span>
-                        <span>•</span>
-                        <span>{track.mimeType.includes("mp4") ? "MP4 (H.264)" : "WEBM (VP9/Opus)"}</span>
+                          <Play className="h-3 w-3 fill-slate-300" />
+                          <span>Preview</span>
+                        </button>
+
+                        <a
+                          href={track.downloadUrl}
+                          download={track.fileName}
+                          className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer"
+                          title="Download master track"
+                        >
+                          <Download className="h-3 w-3" />
+                          <span>Download</span>
+                        </a>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPreviewTrack({
-                            track,
-                            roomId: session.roomId,
-                            sessionTitle,
-                          })
-                        }
-                        className="flex items-center gap-1.5 rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
-                        title="Preview in browser"
-                      >
-                        <Play className="h-3 w-3 fill-slate-300" />
-                        <span>Preview</span>
-                      </button>
-
-                      <a
-                        href={track.downloadUrl}
-                        download={track.fileName}
-                        className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer"
-                        title="Download raw uncompressed track"
-                      >
-                        <Download className="h-3 w-3" />
-                        <span>Download</span>
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Video Preview Modal */}
+      {/* Media Preview Modal (supports both video and dedicated audio tracks) */}
       {previewTrack && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
           <div className="relative w-full max-w-3xl rounded-2xl border border-[#282d3d] bg-[#12141f] p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[#232736] mb-4">
               <div className="flex items-center gap-2">
-                <FileVideo className="h-4 w-4 text-purple-400" />
+                {previewTrack.track.trackType === "audio" ||
+                previewTrack.track.mimeType.startsWith("audio") ? (
+                  <Volume2 className="h-4 w-4 text-purple-400" />
+                ) : (
+                  <FileVideo className="h-4 w-4 text-purple-400" />
+                )}
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Raw Track Preview: {previewTrack.track.participantName} ({previewTrack.track.role})
+                  Raw Track Preview: {previewTrack.track.fileName} ({previewTrack.track.role})
                 </h4>
               </div>
               <button
@@ -308,14 +345,39 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
               </button>
             </div>
 
-            <div className="relative aspect-video rounded-xl bg-black overflow-hidden border border-[#232736]">
-              <video
-                src={previewTrack.track.downloadUrl}
-                controls
-                autoPlay
-                className="h-full w-full object-contain"
-              />
-            </div>
+            {previewTrack.track.trackType === "audio" ||
+            previewTrack.track.mimeType.startsWith("audio") ? (
+              /* Dedicated Audio Track Preview Player */
+              <div className="flex flex-col items-center justify-center rounded-xl bg-[#0c0d14] p-8 border border-[#232736] space-y-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                  <Volume2 className="h-8 w-8" />
+                </div>
+                <div className="text-center">
+                  <h5 className="text-sm font-bold text-white">
+                    Isolated {previewTrack.track.role === "host" ? "Host" : "Guest"} Audio Track
+                  </h5>
+                  <p className="text-xs text-slate-400 font-mono mt-1">
+                    48kHz Broadcast Opus • No cross-bleeding
+                  </p>
+                </div>
+                <audio
+                  src={previewTrack.track.downloadUrl}
+                  controls
+                  autoPlay
+                  className="w-full max-w-md"
+                />
+              </div>
+            ) : (
+              /* Video / Composite Track Preview Player */
+              <div className="relative aspect-video rounded-xl bg-black overflow-hidden border border-[#232736]">
+                <video
+                  src={previewTrack.track.downloadUrl}
+                  controls
+                  autoPlay
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-4 mt-2">
               <span className="text-xs text-slate-400 font-mono">

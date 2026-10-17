@@ -45,20 +45,26 @@ export function StudioStage({
       ? "host"
       : "guest");
 
-  // Local Multi-Track Recording Engine (lossless hardware capture)
+  // Multi-Track Recording Engine (Host & Guest Isolated Audio/Video Capture)
   const {
     status: recordingStatus,
     duration: recordingDuration,
     fileSizeMb,
     uploadProgress,
     errorMessage: recordingError,
+    warningMessage: recordingWarning,
     localDownloadUrl,
+    recordedTracks,
+    missingWarning,
     startRecording,
     stopRecording,
     dismissError: dismissRecordingError,
+    dismissWarning: dismissRecordingWarning,
+    dismissMissingWarning,
   } = useLocalRecorder({
     room,
     localParticipant,
+    remoteParticipants,
     roomId,
     role,
     displayName: localParticipant?.name || (role === "host" ? "Creator Host" : "Guest"),
@@ -190,9 +196,15 @@ export function StudioStage({
           fileSizeMb={fileSizeMb}
           uploadProgress={uploadProgress}
           errorMessage={recordingError}
+          warningMessage={recordingWarning}
           localDownloadUrl={localDownloadUrl}
+          recordedTracks={recordedTracks}
+          missingWarning={missingWarning}
           role={role}
           onDismissError={dismissRecordingError}
+          onDismissWarning={dismissRecordingWarning}
+          onDismissMissingWarning={dismissMissingWarning}
+          onConfirmSoloRecording={() => startRecording(true)}
         />
       </div>
 

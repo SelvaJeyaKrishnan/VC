@@ -1,13 +1,38 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Room, RoomEvent, Track, type LocalParticipant } from "livekit-client";
+import {
+  Room,
+  RoomEvent,
+  Track,
+  type LocalParticipant,
+  type RemoteParticipant,
+} from "livekit-client";
+import {
+  findGuestParticipant,
+  extractMediaStreamTrack,
+  detectSupportedCodecs,
+  validateRecordingReadiness,
+  type MissingTracksWarning,
+} from "@/lib/recordingEngine";
 
-export type RecordingStatus = "idle" | "recording" | "uploading" | "uploaded" | "error";
+export type RecordingStatus = "idle" | "recording" | "finalizing" | "uploading" | "uploaded" | "error";
+
+export interface TrackItemInfo {
+  id: string;
+  label: string;
+  role: "host" | "guest";
+  trackType: "video" | "audio" | "composite";
+  isActive: boolean;
+  fileSizeMb: number;
+  fileName: string;
+  downloadUrl: string | null;
+}
 
 interface UseLocalRecorderProps {
   room: Room;
   localParticipant: LocalParticipant | null;
+  remoteParticipants?: RemoteParticipant[];
   roomId: string;
   role: "host" | "guest";
   displayName: string;
@@ -19,9 +44,26 @@ interface RecordingDataMessage {
   timestamp: number;
 }
 
+interface InternalTrackRecorder {
+  id: string;
+  label: string;
+  role: "host" | "guest";
+  trackType: "video" | "audio" | "composite";
+  fileName: string;
+  participantIdentity: string;
+  participantName: string;
+  stream: MediaStream;
+  mediaRecorder: MediaRecorder;
+  chunks: Blob[];
+  offsetMs: number;
+  mimeType: string;
+  cleanup?: () => void;
+}
+
 export function useLocalRecorder({
   room,
   localParticipant,
+  remoteParticipants = [],
   roomId,
   role,
   displayName,
@@ -29,165 +71,603 @@ export function useLocalRecorder({
   const [status, setStatus] = useState<RecordingStatus>("idle");
   const [duration, setDuration] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [localDownloadUrl, setLocalDownloadUrl] = useState<string | null>(null);
   const [fileSizeMb, setFileSizeMb] = useState<number>(0);
+  const [recordedTracks, setRecordedTracks] = useState<TrackItemInfo[]>([]);
+  const [missingWarning, setMissingWarning] = useState<MissingTracksWarning | null>(null);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
+  // Active recorders map and refs
+  const recordersRef = useRef<Map<string, InternalTrackRecorder>>(new Map());
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
+  const sessionStartEpochRef = useRef<number>(0);
+  const compositeCleanupRef = useRef<(() => void) | null>(null);
 
-  // Pick best available browser MIME type
-  const getSupportedMimeType = () => {
-    if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
-      return "video/webm";
-    }
-    const types = [
-      "video/webm;codecs=vp9,opus",
-      "video/webm;codecs=vp8,opus",
-      "video/webm",
-      "video/mp4",
-    ];
-    for (const t of types) {
-      if (MediaRecorder.isTypeSupported(t)) {
-        return t;
-      }
-    }
-    return "video/webm";
-  };
+  // Update live track list display
+  const updateTracksState = useCallback(() => {
+    const list: TrackItemInfo[] = [];
+    recordersRef.current.forEach((rec) => {
+      const bytes = rec.chunks.reduce((acc, c) => acc + c.size, 0);
+      list.push({
+        id: rec.id,
+        label: rec.label,
+        role: rec.role,
+        trackType: rec.trackType,
+        isActive: rec.mediaRecorder.state === "recording",
+        fileSizeMb: parseFloat((bytes / (1024 * 1024)).toFixed(2)),
+        fileName: rec.fileName,
+        downloadUrl: null,
+      });
+    });
+    setRecordedTracks(list);
+  }, []);
 
-  const uploadRecording = async (blob: Blob, totalDuration: number) => {
+  // Upload all finalized blobs to server
+  const uploadAllRecordings = async (
+    completedBlobs: {
+      id: string;
+      label: string;
+      blob: Blob;
+      role: "host" | "guest";
+      trackType: "video" | "audio" | "composite";
+      fileName: string;
+      participantIdentity: string;
+      participantName: string;
+      durationSeconds: number;
+      offsetMs: number;
+      localUrl: string;
+    }[]
+  ) => {
     setStatus("uploading");
-    setUploadProgress(20);
+    setUploadProgress(10);
+
+    const totalFiles = completedBlobs.length;
+    let successCount = 0;
 
     try {
-      const identity = localParticipant?.identity || `${role}-${Math.random().toString(36).substring(2, 7)}`;
-      const formData = new FormData();
-      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
-      const filename = `${role}-${identity}.${ext}`;
+      for (let i = 0; i < totalFiles; i++) {
+        const item = completedBlobs[i];
+        const formData = new FormData();
+        formData.append("file", item.blob, item.fileName);
+        formData.append("roomId", roomId);
+        formData.append("participantIdentity", item.participantIdentity);
+        formData.append("participantName", item.participantName);
+        formData.append("role", item.role);
+        formData.append("trackType", item.trackType);
+        formData.append("customFileName", item.fileName);
+        formData.append("durationSeconds", item.durationSeconds.toString());
+        formData.append("offsetMs", item.offsetMs.toString());
 
-      formData.append("file", blob, filename);
-      formData.append("roomId", roomId);
-      formData.append("participantIdentity", identity);
-      formData.append("participantName", displayName);
-      formData.append("role", role);
-      formData.append("durationSeconds", totalDuration.toString());
+        const res = await fetch("/api/recordings/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-      setUploadProgress(50);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed uploading ${item.fileName} (${res.status})`);
+        }
 
-      const res = await fetch("/api/recordings/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Upload failed with status ${res.status}`);
+        successCount++;
+        setUploadProgress(Math.round(((i + 1) / totalFiles) * 90) + 10);
       }
 
-      setUploadProgress(100);
       setStatus("uploaded");
+      setUploadProgress(100);
     } catch (err: unknown) {
-      console.error("Recording upload error:", err);
+      console.error("Recording multi-track upload error:", err);
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : "Failed to upload recording to studio library. Local backup download is available below."
+          : "Failed to upload all tracks to studio library. Local browser backups are ready for download."
       );
       setStatus("error");
     }
   };
 
-  const startLocalRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      return;
-    }
+  // Helper to start an individual MediaRecorder instance
+  const startSingleTrackRecorder = useCallback(
+    (params: {
+      id: string;
+      label: string;
+      role: "host" | "guest";
+      trackType: "video" | "audio" | "composite";
+      fileName: string;
+      participantIdentity: string;
+      participantName: string;
+      stream: MediaStream;
+      mimeType: string;
+      bitsPerSecond?: number;
+      cleanup?: () => void;
+    }) => {
+      try {
+        const recorder = new MediaRecorder(params.stream, {
+          mimeType: params.mimeType,
+          videoBitsPerSecond: params.trackType === "audio" ? undefined : 3_500_000,
+          audioBitsPerSecond: 128_000,
+        });
 
+        const chunks: Blob[] = [];
+        const offsetMs =
+          sessionStartEpochRef.current > 0
+            ? Math.round(performance.now() - sessionStartEpochRef.current)
+            : 0;
+
+        recorder.ondataavailable = (e: BlobEvent) => {
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+            // Calculate total size across all recorders
+            let totalBytes = 0;
+            recordersRef.current.forEach((r) => {
+              totalBytes += r.chunks.reduce((sum, c) => sum + c.size, 0);
+            });
+            setFileSizeMb(parseFloat((totalBytes / (1024 * 1024)).toFixed(2)));
+          }
+        };
+
+        recorder.start(1000);
+
+        const internalRec: InternalTrackRecorder = {
+          id: params.id,
+          label: params.label,
+          role: params.role,
+          trackType: params.trackType,
+          fileName: params.fileName,
+          participantIdentity: params.participantIdentity,
+          participantName: params.participantName,
+          stream: params.stream,
+          mediaRecorder: recorder,
+          chunks,
+          offsetMs,
+          mimeType: params.mimeType,
+          cleanup: params.cleanup,
+        };
+
+        recordersRef.current.set(params.id, internalRec);
+      } catch (err) {
+        console.error(`Failed to start recorder for ${params.id}:`, err);
+      }
+    },
+    []
+  );
+
+  // Start Multi-Track Studio Recording (Host Side)
+  const startHostMultiTrackRecording = useCallback(
+    (forceSolo = false) => {
+      try {
+        setErrorMessage(null);
+        setWarningMessage(null);
+        setUploadProgress(0);
+        recordersRef.current.clear();
+
+        // 1. Host Tracks
+        const hostCamTrack = extractMediaStreamTrack(localParticipant, Track.Source.Camera);
+        const hostMicTrack = extractMediaStreamTrack(localParticipant, Track.Source.Microphone);
+
+        // 2. Guest Tracks
+        const remoteList =
+          remoteParticipants.length > 0
+            ? remoteParticipants
+            : Array.from(room.remoteParticipants.values());
+        const guestParticipant = findGuestParticipant(remoteList);
+        const guestCamTrack = extractMediaStreamTrack(guestParticipant, Track.Source.Camera);
+        const guestMicTrack = extractMediaStreamTrack(guestParticipant, Track.Source.Microphone);
+
+        // 3. Readiness and Pre-flight Check
+        const readiness = validateRecordingReadiness({
+          hasHostVideo: !!hostCamTrack,
+          hasHostAudio: !!hostMicTrack,
+          guestParticipant,
+          hasGuestVideo: !!guestCamTrack,
+          hasGuestAudio: !!guestMicTrack,
+        });
+
+        if (!readiness.canRecord) {
+          throw new Error("No active camera or microphone track found for Host to record.");
+        }
+
+        // If guest is not connected or guest tracks are missing, and forceSolo is not confirmed
+        if (!readiness.isCompleteMultiTrack && !forceSolo) {
+          setMissingWarning({
+            isMissing: true,
+            guestConnected: readiness.guestConnected,
+            missingGuestVideo: readiness.missingGuestVideo,
+            missingGuestAudio: readiness.missingGuestAudio,
+            missingHostVideo: readiness.missingHostVideo,
+            missingHostAudio: readiness.missingHostAudio,
+            message:
+              readiness.warningMessage ||
+              "Guest tracks are not fully available. To capture both Host and Guest tracks, please wait for your guest to join.",
+          });
+          return; // Wait for user confirmation or guest connection
+        }
+
+        // Dismiss missing warning if forceSolo or ready
+        setMissingWarning(null);
+
+        // 4. Codecs negotiation
+        const codecs = detectSupportedCodecs();
+        const vExt = codecs.videoExtension;
+        const aExt = codecs.audioExtension;
+
+        startTimeRef.current = Date.now();
+        sessionStartEpochRef.current = performance.now();
+
+        const hostIdentity = localParticipant?.identity || "host";
+        const hostName = localParticipant?.name || displayName || "Host";
+
+        // Track 1: Host Video (pure video track)
+        if (hostCamTrack) {
+          startSingleTrackRecorder({
+            id: "host-video",
+            label: "Host Video",
+            role: "host",
+            trackType: "video",
+            fileName: `host-video.${vExt}`,
+            participantIdentity: hostIdentity,
+            participantName: hostName,
+            stream: new MediaStream([hostCamTrack]),
+            mimeType: codecs.videoMimeType,
+          });
+        }
+
+        // Track 2: Host Audio (isolated microphone track)
+        if (hostMicTrack) {
+          startSingleTrackRecorder({
+            id: "host-audio",
+            label: "Host Audio",
+            role: "host",
+            trackType: "audio",
+            fileName: `host-audio.${aExt}`,
+            participantIdentity: hostIdentity,
+            participantName: hostName,
+            stream: new MediaStream([hostMicTrack]),
+            mimeType: codecs.audioMimeType,
+          });
+        }
+
+        // Track 3 & 4: Guest Video & Audio (from subscribed remote WebRTC tracks)
+        if (guestParticipant) {
+          const guestIdentity = guestParticipant.identity || "guest";
+          const guestName = guestParticipant.name || "Guest";
+
+          if (guestCamTrack) {
+            startSingleTrackRecorder({
+              id: "guest-video",
+              label: "Guest Video",
+              role: "guest",
+              trackType: "video",
+              fileName: `guest-video.${vExt}`,
+              participantIdentity: guestIdentity,
+              participantName: guestName,
+              stream: new MediaStream([guestCamTrack]),
+              mimeType: codecs.videoMimeType,
+            });
+          }
+
+          if (guestMicTrack) {
+            startSingleTrackRecorder({
+              id: "guest-audio",
+              label: "Guest Audio",
+              role: "guest",
+              trackType: "audio",
+              fileName: `guest-audio.${aExt}`,
+              participantIdentity: guestIdentity,
+              participantName: guestName,
+              stream: new MediaStream([guestMicTrack]),
+              mimeType: codecs.audioMimeType,
+            });
+          }
+        }
+
+        // Track 5: Composite Interview (Bonus Deliverable if both host and guest present)
+        if (hostCamTrack && guestCamTrack && typeof document !== "undefined") {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = 1280;
+            canvas.height = 720;
+            const ctx = canvas.getContext("2d");
+
+            if (ctx) {
+              const hVideo = document.createElement("video");
+              hVideo.muted = true;
+              hVideo.autoplay = true;
+              hVideo.playsInline = true;
+              hVideo.srcObject = new MediaStream([hostCamTrack]);
+              hVideo.play().catch(() => {});
+
+              const gVideo = document.createElement("video");
+              gVideo.muted = true;
+              gVideo.autoplay = true;
+              gVideo.playsInline = true;
+              gVideo.srcObject = new MediaStream([guestCamTrack]);
+              gVideo.play().catch(() => {});
+
+              let isDrawing = true;
+              let animId: number;
+
+              const drawLoop = () => {
+                if (!isDrawing) return;
+                ctx.fillStyle = "#090a10";
+                ctx.fillRect(0, 0, 1280, 720);
+                try {
+                  ctx.drawImage(hVideo, 0, 0, 640, 720);
+                  ctx.drawImage(gVideo, 640, 0, 640, 720);
+                } catch {}
+                animId = requestAnimationFrame(drawLoop);
+              };
+              animId = requestAnimationFrame(drawLoop);
+
+              const compositeVideoTracks = canvas.captureStream ? canvas.captureStream(30).getVideoTracks() : [];
+              const compositeAudioTracks: MediaStreamTrack[] = [];
+
+              let audioCtx: AudioContext | null = null;
+              try {
+                const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+                if (AudioCtxClass && (hostMicTrack || guestMicTrack)) {
+                  audioCtx = new AudioCtxClass();
+                  const dest = audioCtx.createMediaStreamDestination();
+                  if (hostMicTrack) {
+                    const s1 = audioCtx.createMediaStreamSource(new MediaStream([hostMicTrack]));
+                    s1.connect(dest);
+                  }
+                  if (guestMicTrack) {
+                    const s2 = audioCtx.createMediaStreamSource(new MediaStream([guestMicTrack]));
+                    s2.connect(dest);
+                  }
+                  compositeAudioTracks.push(...dest.stream.getAudioTracks());
+                }
+              } catch {}
+
+              const compositeStream = new MediaStream([...compositeVideoTracks, ...compositeAudioTracks]);
+              const compCleanup = () => {
+                isDrawing = false;
+                cancelAnimationFrame(animId);
+                hVideo.pause();
+                hVideo.srcObject = null;
+                gVideo.pause();
+                gVideo.srcObject = null;
+                if (audioCtx && audioCtx.state !== "closed") audioCtx.close().catch(() => {});
+              };
+              compositeCleanupRef.current = compCleanup;
+
+              startSingleTrackRecorder({
+                id: "interview-composite",
+                label: "Interview Composite",
+                role: "host",
+                trackType: "composite",
+                fileName: `interview-composite.${vExt}`,
+                participantIdentity: "composite",
+                participantName: "Composite Interview",
+                stream: compositeStream,
+                mimeType: codecs.videoMimeType,
+                cleanup: compCleanup,
+              });
+            }
+          } catch (compErr) {
+            console.warn("Composite stream creation skipped:", compErr);
+          }
+        }
+
+        setStatus("recording");
+        setDuration(0);
+        updateTracksState();
+
+        // Elapsed duration timer
+        durationIntervalRef.current = setInterval(() => {
+          setDuration(Math.round((Date.now() - startTimeRef.current) / 1000));
+          updateTracksState();
+        }, 1000);
+      } catch (err: unknown) {
+        console.error("Failed to start studio multi-track recording:", err);
+        setErrorMessage(
+          err instanceof Error ? err.message : "Failed to start multi-track recording"
+        );
+        setStatus("error");
+      }
+    },
+    [localParticipant, remoteParticipants, room, displayName, startSingleTrackRecorder, updateTracksState]
+  );
+
+  // Start Local Recording (Guest Side Tap)
+  const startGuestLocalRecording = useCallback(() => {
     try {
       setErrorMessage(null);
-      setUploadProgress(0);
-      recordedChunksRef.current = [];
+      recordersRef.current.clear();
 
-      // Extract raw local media tracks from LiveKit participant
-      const tracks: MediaStreamTrack[] = [];
-      const camPub = localParticipant?.getTrackPublication(Track.Source.Camera);
-      const micPub = localParticipant?.getTrackPublication(Track.Source.Microphone);
+      const camTrack = extractMediaStreamTrack(localParticipant, Track.Source.Camera);
+      const micTrack = extractMediaStreamTrack(localParticipant, Track.Source.Microphone);
 
-      if (camPub?.track?.mediaStreamTrack) {
-        tracks.push(camPub.track.mediaStreamTrack);
-      }
-      if (micPub?.track?.mediaStreamTrack) {
-        tracks.push(micPub.track.mediaStreamTrack);
-      }
+      if (!camTrack && !micTrack) return;
 
-      if (tracks.length === 0) {
-        throw new Error("No active camera or microphone track found to record.");
-      }
+      const codecs = detectSupportedCodecs();
+      const vExt = codecs.videoExtension;
+      const aExt = codecs.audioExtension;
+      const identity = localParticipant?.identity || "guest";
+      const name = localParticipant?.name || displayName || "Guest";
 
-      const stream = new MediaStream(tracks);
-      const mimeType = getSupportedMimeType();
-
-      const recorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 3_500_000, // Crisp 1080p
-        audioBitsPerSecond: 128_000,   // Broadcast 48kHz audio
-      });
-
-      recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-          const totalBytes = recordedChunksRef.current.reduce((acc, c) => acc + c.size, 0);
-          setFileSizeMb(parseFloat((totalBytes / (1024 * 1024)).toFixed(2)));
-        }
-      };
-
-      recorder.onstop = () => {
-        const totalDuration = Math.round((Date.now() - startTimeRef.current) / 1000);
-        const finalBlob = new Blob(recordedChunksRef.current, { type: mimeType });
-
-        // Create browser-level local download link as guaranteed safety backup
-        const localUrl = URL.createObjectURL(finalBlob);
-        setLocalDownloadUrl(localUrl);
-
-        // Upload to server storage
-        uploadRecording(finalBlob, totalDuration);
-      };
-
-      // Slice recording every 1000ms for safety against abrupt disconnects
-      recorder.start(1000);
-      mediaRecorderRef.current = recorder;
       startTimeRef.current = Date.now();
+      sessionStartEpochRef.current = performance.now();
+
+      if (camTrack) {
+        startSingleTrackRecorder({
+          id: "guest-video",
+          label: "Guest Video",
+          role: "guest",
+          trackType: "video",
+          fileName: `guest-video.${vExt}`,
+          participantIdentity: identity,
+          participantName: name,
+          stream: new MediaStream([camTrack]),
+          mimeType: codecs.videoMimeType,
+        });
+      }
+
+      if (micTrack) {
+        startSingleTrackRecorder({
+          id: "guest-audio",
+          label: "Guest Audio",
+          role: "guest",
+          trackType: "audio",
+          fileName: `guest-audio.${aExt}`,
+          participantIdentity: identity,
+          participantName: name,
+          stream: new MediaStream([micTrack]),
+          mimeType: codecs.audioMimeType,
+        });
+      }
+
       setStatus("recording");
       setDuration(0);
+      updateTracksState();
 
-      // Start elapsed timer
       durationIntervalRef.current = setInterval(() => {
         setDuration(Math.round((Date.now() - startTimeRef.current) / 1000));
+        updateTracksState();
       }, 1000);
-    } catch (err: unknown) {
-      console.error("Failed to start local recording:", err);
-      setErrorMessage(
-        err instanceof Error ? err.message : "Failed to initialize local MediaRecorder"
-      );
-      setStatus("error");
+    } catch (err) {
+      console.error("Failed to start guest local recording:", err);
     }
-  }, [localParticipant, role, displayName, roomId]);
+  }, [localParticipant, displayName, startSingleTrackRecorder, updateTracksState]);
 
-  const stopLocalRecording = useCallback(() => {
+  // Stop Recording and Finalize all Deliverables
+  const stopAllRecordings = useCallback(async () => {
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
       durationIntervalRef.current = null;
     }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
+    if (recordersRef.current.size === 0) {
+      setStatus("idle");
+      return;
     }
-  }, []);
 
-  // Broadcast coordinated recording signal to all participants
+    setStatus("finalizing");
+
+    const totalDurationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+
+    // Stop all MediaRecorders and gather their Blobs
+    const stopPromises: Promise<{
+      id: string;
+      label: string;
+      blob: Blob;
+      role: "host" | "guest";
+      trackType: "video" | "audio" | "composite";
+      fileName: string;
+      participantIdentity: string;
+      participantName: string;
+      durationSeconds: number;
+      offsetMs: number;
+      localUrl: string;
+    }>[] = [];
+
+    recordersRef.current.forEach((rec) => {
+      const p = new Promise<any>((resolve) => {
+        const recorder = rec.mediaRecorder;
+
+        if (recorder.state === "inactive") {
+          const finalBlob = new Blob(rec.chunks, { type: rec.mimeType });
+          const localUrl = URL.createObjectURL(finalBlob);
+          resolve({
+            id: rec.id,
+            label: rec.label,
+            blob: finalBlob,
+            role: rec.role,
+            trackType: rec.trackType,
+            fileName: rec.fileName,
+            participantIdentity: rec.participantIdentity,
+            participantName: rec.participantName,
+            durationSeconds: totalDurationSeconds,
+            offsetMs: rec.offsetMs,
+            localUrl,
+          });
+          return;
+        }
+
+        recorder.onstop = () => {
+          const finalBlob = new Blob(rec.chunks, { type: rec.mimeType });
+          const localUrl = URL.createObjectURL(finalBlob);
+          resolve({
+            id: rec.id,
+            label: rec.label,
+            blob: finalBlob,
+            role: rec.role,
+            trackType: rec.trackType,
+            fileName: rec.fileName,
+            participantIdentity: rec.participantIdentity,
+            participantName: rec.participantName,
+            durationSeconds: totalDurationSeconds,
+            offsetMs: rec.offsetMs,
+            localUrl,
+          });
+        };
+
+        try {
+          recorder.stop();
+        } catch {
+          // Fallback if stop fails
+          const finalBlob = new Blob(rec.chunks, { type: rec.mimeType });
+          const localUrl = URL.createObjectURL(finalBlob);
+          resolve({
+            id: rec.id,
+            label: rec.label,
+            blob: finalBlob,
+            role: rec.role,
+            trackType: rec.trackType,
+            fileName: rec.fileName,
+            participantIdentity: rec.participantIdentity,
+            participantName: rec.participantName,
+            durationSeconds: totalDurationSeconds,
+            offsetMs: rec.offsetMs,
+            localUrl,
+          });
+        }
+      });
+
+      stopPromises.push(p);
+    });
+
+    try {
+      const results = await Promise.all(stopPromises);
+
+      // Clean up composite canvas loop if running
+      if (compositeCleanupRef.current) {
+        compositeCleanupRef.current();
+        compositeCleanupRef.current = null;
+      }
+
+      // Update track list with local object URLs for immediate user download
+      const updatedTrackList: TrackItemInfo[] = results.map((r) => ({
+        id: r.id,
+        label: r.label,
+        role: r.role,
+        trackType: r.trackType,
+        isActive: false,
+        fileSizeMb: parseFloat((r.blob.size / (1024 * 1024)).toFixed(2)),
+        fileName: r.fileName,
+        downloadUrl: r.localUrl,
+      }));
+      setRecordedTracks(updatedTrackList);
+
+      // Set fallback download URL to the host video or primary track
+      if (results.length > 0) {
+        setLocalDownloadUrl(results[0].localUrl);
+      }
+
+      // Upload all deliverables to server
+      await uploadAllRecordings(results);
+    } catch (err: unknown) {
+      console.error("Failed to finalize all recordings:", err);
+      setErrorMessage("Failed to finalize all media tracks.");
+      setStatus("error");
+    }
+  }, [uploadAllRecordings]);
+
+  // Broadcast coordinated recording signal to guest (Option A coordination)
   const broadcastRecordingCommand = useCallback(
-    async (action: "START" | "STOP") => {
+    async (action: "START" | "STOP", forceSolo = false) => {
       try {
         const signal: RecordingDataMessage = {
           type: "RECORDING_SIGNAL",
@@ -197,26 +677,26 @@ export function useLocalRecorder({
         const encoder = new TextEncoder();
         const data = encoder.encode(JSON.stringify(signal));
 
-        // Publish over LiveKit reliable data channel
+        // Publish over reliable LiveKit data channel
         await room.localParticipant.publishData(data, { reliable: true });
-
-        // Trigger local action
-        if (action === "START") {
-          startLocalRecording();
-        } else {
-          stopLocalRecording();
-        }
       } catch (err) {
-        console.error("Failed to broadcast recording command:", err);
-        // Fallback: execute locally anyway
-        if (action === "START") startLocalRecording();
-        else stopLocalRecording();
+        console.warn("Failed to broadcast recording data signal to remote participants:", err);
+      }
+
+      if (action === "START") {
+        if (role === "host") {
+          startHostMultiTrackRecording(forceSolo);
+        } else {
+          startGuestLocalRecording();
+        }
+      } else {
+        stopAllRecordings();
       }
     },
-    [room, startLocalRecording, stopLocalRecording]
+    [room, role, startHostMultiTrackRecording, startGuestLocalRecording, stopAllRecordings]
   );
 
-  // Listen for recording commands from remote host
+  // Listen for recording commands from remote host (for Guest browser)
   useEffect(() => {
     const handleDataReceived = (payload: Uint8Array) => {
       try {
@@ -224,13 +704,15 @@ export function useLocalRecorder({
         const parsed = JSON.parse(decoder.decode(payload));
         if (parsed.type === "RECORDING_SIGNAL") {
           if (parsed.action === "START") {
-            startLocalRecording();
+            if (role === "guest") {
+              startGuestLocalRecording();
+            }
           } else if (parsed.action === "STOP") {
-            stopLocalRecording();
+            stopAllRecordings();
           }
         }
       } catch {
-        // Ignore unrelated data payloads
+        // Ignore unrelated data channel payloads
       }
     };
 
@@ -238,15 +720,92 @@ export function useLocalRecorder({
     return () => {
       room.off(RoomEvent.DataReceived, handleDataReceived);
     };
-  }, [room, startLocalRecording, stopLocalRecording]);
+  }, [room, role, startGuestLocalRecording, stopAllRecordings]);
 
-  // Warn user before closing tab during recording or upload
+  // Handle participant join / track subscription while recording is active (Late-Join handling)
   useEffect(() => {
-    if (status !== "recording" && status !== "uploading") return;
+    if (status !== "recording" || role !== "host") return;
+
+    const handleTrackSubscribed = (track: any, publication: any, participant: RemoteParticipant) => {
+      // If guest joined or unmuted camera/mic after recording started
+      const codecs = detectSupportedCodecs();
+      const vExt = codecs.videoExtension;
+      const aExt = codecs.audioExtension;
+      const guestIdentity = participant.identity || "guest";
+      const guestName = participant.name || "Guest";
+
+      if (track.source === Track.Source.Camera && !recordersRef.current.has("guest-video")) {
+        const camTrack = track.mediaStreamTrack;
+        if (camTrack) {
+          startSingleTrackRecorder({
+            id: "guest-video",
+            label: "Guest Video",
+            role: "guest",
+            trackType: "video",
+            fileName: `guest-video.${vExt}`,
+            participantIdentity: guestIdentity,
+            participantName: guestName,
+            stream: new MediaStream([camTrack]),
+            mimeType: codecs.videoMimeType,
+          });
+          setWarningMessage("Guest camera track subscribed. Recording guest video now.");
+        }
+      }
+
+      if (track.source === Track.Source.Microphone && !recordersRef.current.has("guest-audio")) {
+        const micTrack = track.mediaStreamTrack;
+        if (micTrack) {
+          startSingleTrackRecorder({
+            id: "guest-audio",
+            label: "Guest Audio",
+            role: "guest",
+            trackType: "audio",
+            fileName: `guest-audio.${aExt}`,
+            participantIdentity: guestIdentity,
+            participantName: guestName,
+            stream: new MediaStream([micTrack]),
+            mimeType: codecs.audioMimeType,
+          });
+          setWarningMessage("Guest microphone track subscribed. Recording guest audio now.");
+        }
+      }
+    };
+
+    const handleParticipantDisconnected = (participant: RemoteParticipant) => {
+      // If guest disconnects during recording, stop their recorders and preserve chunks
+      const gVideo = recordersRef.current.get("guest-video");
+      if (gVideo && gVideo.mediaRecorder.state === "recording") {
+        try {
+          gVideo.mediaRecorder.stop();
+        } catch {}
+      }
+      const gAudio = recordersRef.current.get("guest-audio");
+      if (gAudio && gAudio.mediaRecorder.state === "recording") {
+        try {
+          gAudio.mediaRecorder.stop();
+        } catch {}
+      }
+      setWarningMessage(
+        `Guest (${participant.name || participant.identity}) disconnected. Guest recording preserved up to disconnect.`
+      );
+    };
+
+    room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+    room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+
+    return () => {
+      room.off(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+      room.off(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+    };
+  }, [status, role, room, startSingleTrackRecorder]);
+
+  // Warn before closing browser tab during recording or upload
+  useEffect(() => {
+    if (status !== "recording" && status !== "uploading" && status !== "finalizing") return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = "A studio recording is in progress or uploading. Leaving now may lose your recording.";
+      e.returnValue = "A studio recording is in progress or uploading. Leaving now will lose your interview recording.";
       return e.returnValue;
     };
 
@@ -256,20 +815,27 @@ export function useLocalRecorder({
     };
   }, [status]);
 
-  // Clean up on unmount
+  // Clean up all MediaRecorders and Object URLs on unmount
   useEffect(() => {
     return () => {
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-        mediaRecorderRef.current.stop();
-      }
-      if (localDownloadUrl) {
-        URL.revokeObjectURL(localDownloadUrl);
+      recordersRef.current.forEach((rec) => {
+        if (rec.mediaRecorder && rec.mediaRecorder.state === "recording") {
+          try {
+            rec.mediaRecorder.stop();
+          } catch {}
+        }
+        if (rec.cleanup) {
+          rec.cleanup();
+        }
+      });
+      if (compositeCleanupRef.current) {
+        compositeCleanupRef.current();
       }
     };
-  }, [localDownloadUrl]);
+  }, []);
 
   return {
     status,
@@ -277,9 +843,14 @@ export function useLocalRecorder({
     fileSizeMb,
     uploadProgress,
     errorMessage,
+    warningMessage,
     localDownloadUrl,
-    startRecording: () => broadcastRecordingCommand("START"),
+    recordedTracks,
+    missingWarning,
+    startRecording: (forceSolo = false) => broadcastRecordingCommand("START", forceSolo),
     stopRecording: () => broadcastRecordingCommand("STOP"),
     dismissError: () => setErrorMessage(null),
+    dismissWarning: () => setWarningMessage(null),
+    dismissMissingWarning: () => setMissingWarning(null),
   };
 }

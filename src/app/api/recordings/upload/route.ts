@@ -13,6 +13,11 @@ export async function POST(req: NextRequest) {
     const participantName = (formData.get("participantName") as string) || "Participant";
     const role = (formData.get("role") as string) === "host" ? "host" : "guest";
     const durationSeconds = parseInt((formData.get("durationSeconds") as string) || "0", 10);
+    const trackType =
+      (formData.get("trackType") as "video" | "audio" | "composite" | "av") ||
+      (file?.type?.startsWith("audio") ? "audio" : "video");
+    const customFileName = (formData.get("customFileName") as string) || (file?.name || "");
+    const offsetMs = parseInt((formData.get("offsetMs") as string) || "0", 10);
 
     if (!file || !roomId || !participantIdentity) {
       return NextResponse.json(
@@ -31,6 +36,9 @@ export async function POST(req: NextRequest) {
       mimeType: file.type || "video/webm",
       durationSeconds,
       fileBuffer: buffer,
+      trackType,
+      customFileName,
+      offsetMs,
     });
 
     // Mark interview recording status as completed or uploaded

@@ -4,15 +4,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  AlertTriangle,
   Radio,
   RefreshCw,
   Home,
   ShieldAlert,
   Terminal,
-  ArrowLeft,
-  Camera,
   Sliders,
+  Camera,
 } from "lucide-react";
 import { StudioRoom } from "./StudioRoom";
 import { StudioErrorBoundary } from "./StudioErrorBoundary";
@@ -91,7 +89,6 @@ export function RoomClient({
       setIsMissingConfig(false);
 
       try {
-        // Generate a unique identity prefix for this participant
         const identity = `${role}-${Math.random().toString(36).substring(2, 8)}`;
 
         const res = await fetch("/api/token", {
@@ -114,7 +111,6 @@ export function RoomClient({
           throw new Error(data.error || `Failed to connect (Status ${res.status})`);
         }
 
-        // Defensively sanitize serverUrl on the client
         if (data && data.serverUrl) {
           data.serverUrl = data.serverUrl.trim().split(/[\s\r\n]+/)[0];
         }
@@ -155,10 +151,8 @@ export function RoomClient({
   };
 
   const handleDisconnected = () => {
-    // If an error occurred or the room never established a connection, do not redirect!
-    // Keep user on the configuration / error screen so they can see what needs fixing.
     if (isErrorRef.current || !hasConnected) {
-      console.warn("Disconnected due to error or failed handshake; retaining error screen.");
+      console.warn("Disconnected due to error; retaining error screen.");
       return;
     }
     router.push(`/?left=true&room=${encodeURIComponent(roomId)}`);
@@ -182,7 +176,7 @@ export function RoomClient({
     }
   };
 
-  // 1. PHASE 2: Green Room / Pre-flight waiting room
+  // 1. Green Room / Pre-flight waiting room
   if (inGreenRoom) {
     return (
       <GreenRoom
@@ -195,72 +189,70 @@ export function RoomClient({
     );
   }
 
-  // 2. Loading State during LiveKit token & signaling negotiation
+  // 2. Loading State
   if (isLoading) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0d0f15] p-4 text-center">
-        <div className="relative mb-6 flex items-center justify-center">
-          <div className="absolute -inset-4 rounded-full bg-purple-500/15 blur-xl animate-pulse" />
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl border border-purple-500/30 bg-[#141721] shadow-2xl">
-            <Radio className="h-8 w-8 text-purple-400 stroke-[2.2]" />
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0a0b0e] p-4 text-center select-none">
+        <div className="relative mb-5 flex items-center justify-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#c0915a] text-[#0a0b0e] shadow-lg shadow-[#c0915a]/20">
+            <Radio className="h-7 w-7 stroke-[2.4]" />
           </div>
         </div>
 
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-2">
-          Connecting to OneGuest Studio
+        <h2 className="font-heading text-xl sm:text-2xl font-bold tracking-tight text-white mb-2">
+          Connecting to Studio
         </h2>
-        <p className="text-xs sm:text-sm text-slate-400 max-w-sm mb-6">
-          Initializing WebRTC media engine for session{" "}
-          <span className="font-mono text-purple-300 font-semibold">{roomId}</span>...
+        <p className="text-xs text-[#8c94a4] max-w-sm mb-6">
+          Initializing high-definition media engine for studio{" "}
+          <span className="font-mono text-[#cf9f67] font-semibold">{roomId}</span>...
         </p>
 
-        {/* Pulse Bar */}
-        <div className="h-1.5 w-48 overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full w-full bg-gradient-to-r from-purple-500 to-indigo-400 animate-pulse" />
+        <div className="h-1 w-44 overflow-hidden rounded-full bg-[#1a1e26]">
+          <div className="h-full w-full bg-[#c0915a] animate-pulse" />
         </div>
       </div>
     );
   }
 
-  // 3. Error State with Fallbacks and return to Green Room
+  // 3. Error State with Diagnostics
   if (errorMessage || !tokenData) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0d0f15] p-4 text-center">
-        <div className="w-full max-w-lg rounded-3xl border border-[#232736] bg-[#141721] p-6 sm:p-8 shadow-2xl text-left">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0a0b0e] p-4 text-center select-none">
+        <div className="w-full max-w-lg rounded-xl border border-[#1f242e] bg-[#13161c] p-6 sm:p-8 shadow-2xl text-left">
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/30">
-              <ShieldAlert className="h-6 w-6 stroke-[2]" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <ShieldAlert className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">Studio Connection Error</h2>
-              <p className="text-xs text-slate-400">
-                {isMissingConfig ? "Invalid or Missing LiveKit Credentials" : `Session: ${roomId}`}
+              <h2 className="font-heading text-lg font-bold text-white">Studio Connection Error</h2>
+              <p className="text-xs text-[#8c94a4]">
+                {isMissingConfig ? "Invalid or Missing LiveKit Credentials" : `Studio: ${roomId}`}
               </p>
             </div>
           </div>
 
-          <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-3.5 text-xs text-rose-200 mb-5 leading-relaxed font-mono">
+          <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-3 text-xs text-rose-200 mb-5 leading-relaxed font-mono">
             {errorMessage || "Failed to receive authorization token from studio server."}
           </div>
 
           {isMissingConfig && (
-            <div className="rounded-xl border border-purple-800/60 bg-purple-950/20 p-4 mb-5 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+            <div className="rounded-lg border border-[#3b2a1a] bg-[#1c140d] p-4 mb-5 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#cf9f67]">
                 <Terminal className="h-4 w-4" />
                 <span>LiveKit Environment Variables Required</span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                To connect to real LiveKit video servers, configure your <code className="text-purple-200 bg-slate-900 px-1 py-0.5 rounded">.env.local</code> file with your actual keys from{" "}
+              <p className="text-[11px] text-[#d1d5db]">
+                To connect to real LiveKit video servers, configure your <code className="text-[#cf9f67] bg-[#0a0b0e] px-1 py-0.5 rounded">.env.local</code> file with your actual keys from{" "}
                 <a
                   href="https://cloud.livekit.io"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-purple-300 underline hover:text-purple-200"
+                  className="text-[#c0915a] underline hover:text-[#cf9f67]"
                 >
                   LiveKit Cloud
                 </a>:
               </p>
-              <pre className="rounded-lg bg-slate-950 p-2.5 text-[11px] font-mono text-purple-200/90 overflow-x-auto">
+              <pre className="rounded bg-[#0a0b0e] p-2.5 text-[11px] font-mono text-[#d1d5db] overflow-x-auto">
 {`LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=APIxxxxxxxxx
 LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
@@ -268,22 +260,22 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
             </div>
           )}
 
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-1">
             <button
               type="button"
               onClick={() => setInGreenRoom(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#2b3144] bg-[#1a1e2b] px-4 py-2.5 text-xs font-semibold text-slate-200 hover:bg-[#23283a] hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-[#242a36] bg-[#161a22] px-4 py-2 text-xs font-semibold text-[#d1d5db] hover:bg-[#1e2330] hover:text-white transition-colors cursor-pointer"
             >
-              <Sliders className="h-4 w-4 text-purple-400" />
+              <Sliders className="h-4 w-4 text-[#c0915a]" />
               <span>Return to Device Setup (Green Room)</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowPreflight((prev) => !prev)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-[#c0915a]/30 bg-[#c0915a]/10 px-4 py-2 text-xs font-semibold text-[#cf9f67] hover:bg-[#c0915a]/20 transition-colors cursor-pointer"
             >
-              <Camera className="h-4 w-4 text-purple-400" />
+              <Camera className="h-4 w-4 text-[#c0915a]" />
               <span>{showPreflight ? "Hide Local Camera & Mic Test" : "Test Local Camera & Mic Feed"}</span>
             </button>
 
@@ -297,7 +289,7 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
               <button
                 type="button"
                 onClick={() => fetchToken(displayName)}
-                className="w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-3 text-xs font-bold text-white transition-all active:scale-[0.98] cursor-pointer"
+                className="w-full sm:flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2.5 text-xs font-bold text-[#0a0b0e] transition-all cursor-pointer"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span>Retry Connection</span>
@@ -305,10 +297,10 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
 
               <Link
                 href="/"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl border border-[#2b3144] bg-[#1a1e2b] px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-[#23283a] hover:text-white transition-colors cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg border border-[#242a36] bg-[#161a22] px-4 py-2.5 text-xs font-semibold text-[#d1d5db] hover:bg-[#1e2330] hover:text-white transition-colors cursor-pointer"
               >
                 <Home className="h-3.5 w-3.5" />
-                <span>Exit to Home</span>
+                <span>Return Home</span>
               </Link>
             </div>
           </div>
@@ -317,7 +309,7 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
     );
   }
 
-  // 4. Connected Studio Stage wrapped in ErrorBoundary
+  // 4. Connected Studio Stage
   return (
     <StudioErrorBoundary roomId={roomId} onReset={() => fetchToken(displayName)}>
       <StudioRoom

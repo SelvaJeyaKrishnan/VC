@@ -246,22 +246,22 @@ export function useLocalRecorder({
         const hostCamTrack = extractMediaStreamTrack(localParticipant, Track.Source.Camera);
         const hostMicTrack = extractMediaStreamTrack(localParticipant, Track.Source.Microphone);
 
-        // 2. Guest Tracks
+        // 2. Remote / Guest Tracks
         const remoteList =
           remoteParticipants.length > 0
             ? remoteParticipants
             : Array.from(room.remoteParticipants.values());
-        const guestParticipant = findGuestParticipant(remoteList);
-        const guestCamTrack = extractMediaStreamTrack(guestParticipant, Track.Source.Camera);
-        const guestMicTrack = extractMediaStreamTrack(guestParticipant, Track.Source.Microphone);
+        const primaryGuest = findGuestParticipant(remoteList);
+        const primaryGuestCam = extractMediaStreamTrack(primaryGuest, Track.Source.Camera);
+        const primaryGuestMic = extractMediaStreamTrack(primaryGuest, Track.Source.Microphone);
 
         // 3. Readiness and Pre-flight Check
         const readiness = validateRecordingReadiness({
           hasHostVideo: !!hostCamTrack,
           hasHostAudio: !!hostMicTrack,
-          guestParticipant,
-          hasGuestVideo: !!guestCamTrack,
-          hasGuestAudio: !!guestMicTrack,
+          guestParticipant: primaryGuest,
+          hasGuestVideo: !!primaryGuestCam,
+          hasGuestAudio: !!primaryGuestMic,
         });
 
         if (!readiness.canRecord) {
@@ -328,42 +328,62 @@ export function useLocalRecorder({
           });
         }
 
-        // Track 3 & 4: Guest Video & Audio (from subscribed remote WebRTC tracks)
-        if (guestParticipant) {
-          const guestIdentity = guestParticipant.identity || "guest";
-          const guestName = guestParticipant.name || "Guest";
+        // Track 3+: All Guest / Co-Host Video & Audio tracks
+        const activeMicTracks: MediaStreamTrack[] = [];
+        if (hostMicTrack) activeMicTracks.push(hostMicTrack);
 
-          if (guestCamTrack) {
+        const compositeVideoElements: { el: HTMLVideoElement; x: number; y: number; w: number; h: number }[] = [];
+
+        remoteList.forEach((guestP, idx) => {
+          const guestCam = extractMediaStreamTrack(guestP, Track.Source.Camera);
+          const guestMic = extractMediaStreamTrack(guestP, Track.Source.Microphone);
+          const rawIdentity = guestP.identity || `guest-${idx + 1}`;
+          const safeIdentity = rawIdentity.replace(/[^a-zA-Z0-9_-]/g, "");
+          const guestName = guestP.name || (remoteList.length === 1 ? "Guest" : `Guest ${idx + 1}`);
+
+          // For 1 guest, use standard 'guest-video' & 'guest-audio' for exact test/backward compatibility
+          const idPrefix = remoteList.length === 1 ? "guest" : `guest-${safeIdentity}`;
+          const filePrefix = remoteList.length === 1 ? "guest" : `guest-${safeIdentity}`;
+
+          if (guestCam) {
             startSingleTrackRecorder({
-              id: "guest-video",
-              label: "Guest Video",
+              id: `${idPrefix}-video`,
+              label: `${guestName} Video`,
               role: "guest",
               trackType: "video",
-              fileName: `guest-video.${vExt}`,
-              participantIdentity: guestIdentity,
+              fileName: `${filePrefix}-video.${vExt}`,
+              participantIdentity: rawIdentity,
               participantName: guestName,
-              stream: new MediaStream([guestCamTrack]),
+              stream: new MediaStream([guestCam]),
               mimeType: codecs.videoMimeType,
             });
           }
 
-          if (guestMicTrack) {
+          if (guestMic) {
+            activeMicTracks.push(guestMic);
             startSingleTrackRecorder({
-              id: "guest-audio",
-              label: "Guest Audio",
+              id: `${idPrefix}-audio`,
+              label: `${guestName} Audio`,
               role: "guest",
               trackType: "audio",
-              fileName: `guest-audio.${aExt}`,
-              participantIdentity: guestIdentity,
+              fileName: `${filePrefix}-audio.${aExt}`,
+              participantIdentity: rawIdentity,
               participantName: guestName,
-              stream: new MediaStream([guestMicTrack]),
+              stream: new MediaStream([guestMic]),
               mimeType: codecs.audioMimeType,
             });
           }
-        }
+        });
 
-        // Track 5: Composite Interview (Bonus Deliverable if both host and guest present)
-        if (hostCamTrack && guestCamTrack && typeof document !== "undefined") {
+        // Composite Interview: dynamic multi-participant grid canvas
+        const allVideoTracks: { name: string; track: MediaStreamTrack }[] = [];
+        if (hostCamTrack) allVideoTracks.push({ name: hostName, track: hostCamTrack });
+        remoteList.forEach((p, idx) => {
+          const c = extractMediaStreamTrack(p, Track.Source.Camera);
+          if (c) allVideoTracks.push({ name: p.name || `Guest ${idx + 1}`, track: c });
+        });
+
+        if (allVideoTracks.length >= 2 && typeof document !== "undefined") {
           try {
             const canvas = document.createElement("canvas");
             canvas.width = 1280;
@@ -371,31 +391,45 @@ export function useLocalRecorder({
             const ctx = canvas.getContext("2d");
 
             if (ctx) {
-              const hVideo = document.createElement("video");
-              hVideo.muted = true;
-              hVideo.autoplay = true;
-              hVideo.playsInline = true;
-              hVideo.srcObject = new MediaStream([hostCamTrack]);
-              hVideo.play().catch(() => {});
-
-              const gVideo = document.createElement("video");
-              gVideo.muted = true;
-              gVideo.autoplay = true;
-              gVideo.playsInline = true;
-              gVideo.srcObject = new MediaStream([guestCamTrack]);
-              gVideo.play().catch(() => {});
-
+              const videoElements: HTMLVideoElement[] = [];
               let isDrawing = true;
               let animId: number;
+
+              allVideoTracks.forEach((vt) => {
+                const vid = document.createElement("video");
+                vid.muted = true;
+                vid.autoplay = true;
+                vid.playsInline = true;
+                vid.srcObject = new MediaStream([vt.track]);
+                vid.play().catch(() => {});
+                videoElements.push(vid);
+              });
 
               const drawLoop = () => {
                 if (!isDrawing) return;
                 ctx.fillStyle = "#090a10";
                 ctx.fillRect(0, 0, 1280, 720);
-                try {
-                  ctx.drawImage(hVideo, 0, 0, 640, 720);
-                  ctx.drawImage(gVideo, 640, 0, 640, 720);
-                } catch {}
+
+                const count = videoElements.length;
+                if (count === 2) {
+                  // Side-by-side 2-up split
+                  try {
+                    ctx.drawImage(videoElements[0], 0, 0, 640, 720);
+                    ctx.drawImage(videoElements[1], 640, 0, 640, 720);
+                  } catch {}
+                } else if (count >= 3) {
+                  // 2x2 grid
+                  const cellW = 640;
+                  const cellH = 360;
+                  videoElements.slice(0, 4).forEach((vid, i) => {
+                    const col = i % 2;
+                    const row = Math.floor(i / 2);
+                    try {
+                      ctx.drawImage(vid, col * cellW, row * cellH, cellW, cellH);
+                    } catch {}
+                  });
+                }
+
                 animId = requestAnimationFrame(drawLoop);
               };
               animId = requestAnimationFrame(drawLoop);
@@ -406,17 +440,15 @@ export function useLocalRecorder({
               let audioCtx: AudioContext | null = null;
               try {
                 const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-                if (AudioCtxClass && (hostMicTrack || guestMicTrack)) {
+                if (AudioCtxClass && activeMicTracks.length > 0) {
                   audioCtx = new AudioCtxClass();
                   const dest = audioCtx.createMediaStreamDestination();
-                  if (hostMicTrack) {
-                    const s1 = audioCtx.createMediaStreamSource(new MediaStream([hostMicTrack]));
-                    s1.connect(dest);
-                  }
-                  if (guestMicTrack) {
-                    const s2 = audioCtx.createMediaStreamSource(new MediaStream([guestMicTrack]));
-                    s2.connect(dest);
-                  }
+                  activeMicTracks.forEach((t) => {
+                    try {
+                      const s = audioCtx!.createMediaStreamSource(new MediaStream([t]));
+                      s.connect(dest);
+                    } catch {}
+                  });
                   compositeAudioTracks.push(...dest.stream.getAudioTracks());
                 }
               } catch {}
@@ -425,10 +457,10 @@ export function useLocalRecorder({
               const compCleanup = () => {
                 isDrawing = false;
                 cancelAnimationFrame(animId);
-                hVideo.pause();
-                hVideo.srcObject = null;
-                gVideo.pause();
-                gVideo.srcObject = null;
+                videoElements.forEach((vid) => {
+                  vid.pause();
+                  vid.srcObject = null;
+                });
                 if (audioCtx && audioCtx.state !== "closed") audioCtx.close().catch(() => {});
               };
               compositeCleanupRef.current = compCleanup;
@@ -491,13 +523,18 @@ export function useLocalRecorder({
       startTimeRef.current = Date.now();
       sessionStartEpochRef.current = performance.now();
 
+      const safeId = identity.replace(/[^a-zA-Z0-9_-]/g, "");
+      const isGeneric = safeId === "guest" || safeId === "";
+      const vidFileName = isGeneric ? `guest-video.${vExt}` : `guest-${safeId}-video.${vExt}`;
+      const audFileName = isGeneric ? `guest-audio.${aExt}` : `guest-${safeId}-audio.${aExt}`;
+
       if (camTrack) {
         startSingleTrackRecorder({
-          id: "guest-video",
-          label: "Guest Video",
+          id: isGeneric ? "guest-video" : `guest-${safeId}-video`,
+          label: `${name} Video`,
           role: "guest",
           trackType: "video",
-          fileName: `guest-video.${vExt}`,
+          fileName: vidFileName,
           participantIdentity: identity,
           participantName: name,
           stream: new MediaStream([camTrack]),
@@ -507,11 +544,11 @@ export function useLocalRecorder({
 
       if (micTrack) {
         startSingleTrackRecorder({
-          id: "guest-audio",
-          label: "Guest Audio",
+          id: isGeneric ? "guest-audio" : `guest-${safeId}-audio`,
+          label: `${name} Audio`,
           role: "guest",
           trackType: "audio",
-          fileName: `guest-audio.${aExt}`,
+          fileName: audFileName,
           participantIdentity: identity,
           participantName: name,
           stream: new MediaStream([micTrack]),

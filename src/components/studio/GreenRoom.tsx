@@ -49,7 +49,6 @@ export function GreenRoom({
   const animationFrameRef = useRef<number | null>(null);
 
   const enhancer = useSelfieEnhancer();
-  const [showEnhancerSettings, setShowEnhancerSettings] = useState(false);
 
   const [displayName, setDisplayName] = useState(
     initialName || (role === "host" ? "Creator Host" : "Guest")
@@ -189,7 +188,7 @@ export function GreenRoom({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCamera, selectedMic, refreshDevices]);
+  }, [selectedCamera, selectedMic, refreshDevices, enhancer.isEnabled, enhancer.processor]);
 
   useEffect(() => {
     startPreview();
@@ -303,27 +302,27 @@ export function GreenRoom({
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f15] text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-10 select-none">
+    <div className="min-h-screen bg-[#0a0b0e] text-[#f3f4f6] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-10 select-none">
       <div className="w-full max-w-4xl mx-auto space-y-6">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#202534]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1a1e26]">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400">
+              <span className="flex h-2 w-2 rounded-full bg-[#c0915a] animate-pulse" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#cf9f67]">
                 Green Room • Device Setup
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            <h1 className="font-heading text-xl sm:text-2xl font-bold text-white tracking-tight">
               {sessionTitle}
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-            <span className="rounded-lg border border-[#232736] bg-[#141721] px-3 py-1.5 text-purple-300 font-semibold">
-              Room: {roomId}
+          <div className="flex items-center gap-2 text-xs font-mono text-[#8c94a4]">
+            <span className="rounded-md border border-[#1f242e] bg-[#13161c] px-3 py-1 text-[#cf9f67] font-semibold">
+              Studio: {roomId}
             </span>
-            <span className="rounded-lg border border-[#232736] bg-[#141721] px-2.5 py-1.5 uppercase font-bold text-slate-300 text-[10px]">
+            <span className="rounded-md border border-[#1f242e] bg-[#13161c] px-2.5 py-1 uppercase font-bold text-[#d1d5db] text-[10px]">
               {role}
             </span>
           </div>
@@ -333,25 +332,25 @@ export function GreenRoom({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left: Large Live Video Canvas (7 Cols) */}
           <div className="lg:col-span-7 space-y-3">
-            <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-[#232736] bg-[#10121a] shadow-2xl flex items-center justify-center">
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-[#1f242e] bg-[#13161c] shadow-lg flex items-center justify-center">
               {isLoading && (
-                <div className="flex flex-col items-center gap-2 text-slate-400">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-                  <span className="text-xs font-mono">Initializing media hardware...</span>
+                <div className="flex flex-col items-center gap-2 text-[#8c94a4]">
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#c0915a] border-t-transparent" />
+                  <span className="text-xs font-mono">Initializing camera feed...</span>
                 </div>
               )}
 
               {permissionError && !isLoading && (
                 <div className="flex flex-col items-center p-6 text-center max-w-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-3">
-                    <AlertTriangle className="h-6 w-6" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-3">
+                    <AlertTriangle className="h-5 w-5" />
                   </div>
-                  <h4 className="text-sm font-bold text-white mb-1">Permissions Required</h4>
-                  <p className="text-xs text-slate-400 mb-4 leading-relaxed">{permissionError}</p>
+                  <h4 className="font-heading text-sm font-bold text-white mb-1">Permissions Required</h4>
+                  <p className="text-xs text-[#8c94a4] mb-4 leading-relaxed">{permissionError}</p>
                   <button
                     type="button"
                     onClick={startPreview}
-                    className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     <span>Retry Hardware Access</span>
@@ -370,36 +369,36 @@ export function GreenRoom({
               />
 
               {!isLoading && !permissionError && !isCameraOn && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0d0f16] text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#161922] text-slate-500 mb-2 border border-[#232736]">
-                    <VideoOff className="h-7 w-7" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0b0e] text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#14171d] text-[#6b7280] mb-2 border border-[#1f242e]">
+                    <VideoOff className="h-6 w-6" />
                   </div>
-                  <span className="text-xs text-slate-400 font-medium">Camera turned off</span>
+                  <span className="text-xs text-[#8c94a4] font-medium">Camera turned off</span>
                 </div>
               )}
 
-              {/* Selfie Enhancer Active Badge */}
+              {/* Camera Enhancer Active Badge */}
               {enhancer.isEnabled && isCameraOn && !permissionError && !isLoading && (
-                <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 rounded-full bg-purple-950/85 px-3 py-1 text-[11px] font-semibold text-purple-200 border border-purple-500/40 backdrop-blur-md shadow-lg">
-                  <Sparkles className="h-3 w-3 text-purple-400 animate-pulse" />
+                <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 rounded-md bg-[#0a0b0e]/90 px-2.5 py-1 text-[11px] font-semibold text-[#cf9f67] border border-[#c0915a]/40 backdrop-blur-md">
+                  <Sparkles className="h-3 w-3 text-[#c0915a]" />
                   <span>Enhancer: {enhancer.strength}%</span>
                   {enhancer.compareMode && (
-                    <span className="ml-1 text-[10px] text-cyan-300 border-l border-purple-500/40 pl-1.5 font-bold">
-                      Split Compare
+                    <span className="ml-1 text-[10px] text-[#82a4d4] border-l border-[#c0915a]/40 pl-1.5 font-bold">
+                      Compare
                     </span>
                   )}
                 </div>
               )}
 
-              {/* Floating Bottom Cam, Mic & Enhancer Pill */}
+              {/* Floating Bottom Cam, Mic & Enhancer Controls */}
               {!permissionError && !isLoading && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 rounded-full bg-[#0d0f16]/90 px-4 py-2 backdrop-blur-md border border-[#282d3d] shadow-xl z-20">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-lg bg-[#0a0b0e]/90 px-3 py-1.5 backdrop-blur-md border border-[#242a36] shadow-md z-20">
                   <button
                     type="button"
                     onClick={handleToggleCamera}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full transition-all cursor-pointer ${
+                    className={`flex h-9 w-9 items-center justify-center rounded-md transition-all cursor-pointer ${
                       isCameraOn
-                        ? "bg-[#181c26] text-slate-200 hover:bg-[#222736]"
+                        ? "bg-[#181c24] text-[#d1d5db] hover:bg-[#222732] hover:text-white"
                         : "bg-rose-600 text-white hover:bg-rose-500"
                     }`}
                     title={isCameraOn ? "Mute Camera" : "Unmute Camera"}
@@ -410,9 +409,9 @@ export function GreenRoom({
                   <button
                     type="button"
                     onClick={handleToggleMic}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full transition-all cursor-pointer ${
+                    className={`flex h-9 w-9 items-center justify-center rounded-md transition-all cursor-pointer ${
                       isMicOn
-                        ? "bg-[#181c26] text-slate-200 hover:bg-[#222736]"
+                        ? "bg-[#181c24] text-[#d1d5db] hover:bg-[#222732] hover:text-white"
                         : "bg-rose-600 text-white hover:bg-rose-500"
                     }`}
                     title={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
@@ -423,47 +422,41 @@ export function GreenRoom({
                   <button
                     type="button"
                     onClick={enhancer.toggleEnabled}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full transition-all cursor-pointer relative ${
+                    className={`flex h-9 w-9 items-center justify-center rounded-md transition-all cursor-pointer relative ${
                       enhancer.isEnabled
-                        ? "bg-purple-600 text-white shadow-lg shadow-purple-950/60 ring-2 ring-purple-400/50"
-                        : "bg-[#181c26] text-slate-200 hover:bg-[#222736]"
+                        ? "bg-[#c0915a] text-[#0a0b0e] font-bold"
+                        : "bg-[#181c24] text-[#d1d5db] hover:bg-[#222732] hover:text-white"
                     }`}
                     title={
                       enhancer.isEnabled
-                        ? `Selfie Enhancer Active (${enhancer.strength}%) • Click to toggle`
-                        : "Turn On Selfie Enhancer"
+                        ? `Camera Enhancer Active (${enhancer.strength}%) • Click to toggle`
+                        : "Turn On Camera Enhancer"
                     }
                   >
                     <Sparkles className="h-4 w-4" />
-                    {enhancer.isEnabled && (
-                      <span className="absolute top-1 right-1 flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                      </span>
-                    )}
                   </button>
                 </div>
               )}
             </div>
 
-            {/* High-Precision Riverside Audio VU Meter */}
+            {/* Precision Audio VU Meter */}
             {!permissionError && !isLoading && (
-              <div className="rounded-xl border border-[#232736] bg-[#141721] p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-300">
+              <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#d1d5db]">
                   <div className="flex items-center gap-2">
-                    <Mic className="h-3.5 w-3.5 text-purple-400" />
-                    <span className="font-semibold text-[11px] uppercase tracking-wider text-slate-400">
-                      Microphone Signal
+                    <Mic className="h-3.5 w-3.5 text-[#c0915a]" />
+                    <span className="font-semibold text-[11px] uppercase tracking-wider text-[#8c94a4]">
+                      Microphone Input
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] font-semibold text-purple-300">
+                  <span className="font-mono text-[11px] font-semibold text-[#cf9f67]">
                     {isMicOn ? (audioLevel > 5 ? "Signal Active" : "Quiet") : "Muted"}
                   </span>
                 </div>
 
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[#0c0e14] border border-[#1f232e]">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#0a0b0e] border border-[#1a1e26]">
                   <div
-                    className="h-full rounded-full transition-all duration-75 bg-gradient-to-r from-purple-500 via-indigo-400 to-emerald-400"
+                    className="h-full rounded-full transition-all duration-75 bg-[#c0915a]"
                     style={{ width: isMicOn ? `${Math.max(3, audioLevel)}%` : "0%" }}
                   />
                 </div>
@@ -473,12 +466,12 @@ export function GreenRoom({
 
           {/* Right: Device Selectors, Participant Name & Join (5 Cols) */}
           <div className="lg:col-span-5 space-y-4">
-            <div className="rounded-2xl border border-[#232736] bg-[#141721] p-5 sm:p-6 shadow-xl">
+            <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-5 sm:p-6 shadow-sm">
               <form onSubmit={handleJoin} className="space-y-4">
                 {/* Display Name */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Your Display Name
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#8c94a4] mb-1.5">
+                    Your Name
                   </label>
                   <input
                     type="text"
@@ -486,19 +479,19 @@ export function GreenRoom({
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="e.g. Alex Morgan"
-                    className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors"
+                    className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3.5 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none transition-colors"
                   />
                 </div>
 
                 {/* Camera Selector */}
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1">
                     Camera
                   </label>
                   <select
                     value={selectedCamera}
                     onChange={(e) => setSelectedCamera(e.target.value)}
-                    className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-[#d1d5db] focus:border-[#c0915a] focus:outline-none"
                   >
                     {videoDevices.map((dev) => (
                       <option key={dev.deviceId} value={dev.deviceId}>
@@ -511,13 +504,13 @@ export function GreenRoom({
 
                 {/* Microphone Selector */}
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1">
                     Microphone
                   </label>
                   <select
                     value={selectedMic}
                     onChange={(e) => setSelectedMic(e.target.value)}
-                    className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-[#d1d5db] focus:border-[#c0915a] focus:outline-none"
                   >
                     {audioInputDevices.map((dev) => (
                       <option key={dev.deviceId} value={dev.deviceId}>
@@ -528,25 +521,25 @@ export function GreenRoom({
                   </select>
                 </div>
 
-                {/* Speaker Selector & Test Chime */}
+                {/* Speaker Selector & Test Sound */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Speaker / Output
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#8c94a4]">
+                      Output / Speaker
                     </label>
                     <button
                       type="button"
                       onClick={handleTestSpeaker}
-                      className="text-[11px] text-purple-400 hover:text-purple-300 font-semibold flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-[#c0915a] hover:text-[#cf9f67] font-semibold flex items-center gap-1 cursor-pointer"
                     >
                       <Volume2 className="h-3 w-3" />
-                      <span>{testSoundPlaying ? "Playing..." : "Test Sound"}</span>
+                      <span>{testSoundPlaying ? "Playing..." : "Test Audio"}</span>
                     </button>
                   </div>
                   <select
                     value={selectedSpeaker}
                     onChange={(e) => setSelectedSpeaker(e.target.value)}
-                    className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                    className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-[#d1d5db] focus:border-[#c0915a] focus:outline-none"
                   >
                     {audioOutputDevices.map((dev) => (
                       <option key={dev.deviceId} value={dev.deviceId}>
@@ -557,7 +550,7 @@ export function GreenRoom({
                   </select>
                 </div>
 
-                {/* Selfie Enhancer Setup & Real-Time Tuning */}
+                {/* Camera Enhancer Controls */}
                 <div className="pt-1">
                   <SelfieEnhancerControl
                     config={enhancer.config}
@@ -574,7 +567,7 @@ export function GreenRoom({
                 <button
                   type="submit"
                   disabled={!displayName.trim()}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-5 py-3.5 text-xs font-bold shadow-xl shadow-purple-950/50 active:scale-[0.98] disabled:opacity-50 transition-all pt-2.5 cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-5 py-3 text-xs font-bold shadow-md shadow-[#c0915a]/20 active:scale-[0.98] disabled:opacity-50 transition-all cursor-pointer"
                 >
                   <span>Join Studio</span>
                   <ArrowRight className="h-4 w-4" />
@@ -582,14 +575,14 @@ export function GreenRoom({
               </form>
             </div>
 
-            {/* Riverside Acoustic Guidance Box */}
-            <div className="rounded-xl border border-[#232736] bg-[#141721] p-3.5 text-xs text-slate-400 space-y-1.5">
-              <div className="flex items-center gap-2 text-slate-300 font-semibold text-[11px]">
-                <Headphones className="h-3.5 w-3.5 text-purple-400" />
+            {/* Acoustic Guidance Box */}
+            <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-3.5 text-xs text-[#8c94a4] space-y-1.5">
+              <div className="flex items-center gap-2 text-[#d1d5db] font-semibold text-[11px]">
+                <Headphones className="h-3.5 w-3.5 text-[#c0915a]" />
                 <span>Headphones Recommended</span>
               </div>
               <p className="text-[11px] leading-relaxed">
-                Wearing headphones prevents microphone bleed, ensuring clear, uncompromised multi-track audio recordings.
+                Wearing headphones prevents echo and bleed, ensuring clean separate audio tracks for editing.
               </p>
             </div>
           </div>

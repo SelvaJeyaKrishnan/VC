@@ -1,44 +1,85 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: var(--font-instrument), var(--font-inter), sans-serif;
+
+  /* Riverside Surface Palette */
+  --color-rs-canvas: #0a0b0e;
+  --color-rs-sidebar: #0f1115;
+  --color-rs-surface: #14171d;
+  --color-rs-surface-hover: #1a1e26;
+  --color-rs-surface-active: #222732;
+  --color-rs-surface-card: #13161c;
+  --color-rs-border: #1f242e;
+  --color-rs-border-subtle: #171a21;
+  --color-rs-border-strong: #2a313e;
+
+  /* Riverside Primary Accent (Warm Studio Bronze / Copper) */
+  --color-rs-primary: #c0915a;
+  --color-rs-primary-hover: #cf9f67;
+  --color-rs-primary-subtle: rgba(192, 145, 90, 0.12);
+  --color-rs-primary-border: rgba(192, 145, 90, 0.35);
+
+  /* Riverside Studio Recording Red */
+  --color-rs-rec: #ef4444;
+  --color-rs-rec-hover: #dc2626;
+  --color-rs-rec-subtle: rgba(239, 68, 68, 0.14);
+  --color-rs-rec-border: rgba(239, 68, 68, 0.4);
+
+  /* Riverside Secondary Accents */
+  --color-rs-blue: #4c6a92;
+  --color-rs-blue-hover: #5a7ca9;
+  --color-rs-emerald: #10b981;
+  --color-rs-emerald-subtle: rgba(16, 185, 129, 0.12);
+  --color-rs-amber: #f59e0b;
+}
+
 :root {
-  --background: #0d0f15;
-  --foreground: #f8fafc;
-  --card-bg: #141721;
-  --card-border: #232736;
-  --accent-purple: #7c3aed;
-  --accent-purple-hover: #6d28d9;
+  --background: #0a0b0e;
+  --foreground: #f3f4f6;
+  --card-bg: #14171d;
+  --card-border: #1f242e;
+  --primary-accent: #c0915a;
+  --primary-accent-hover: #cf9f67;
   --record-red: #ef4444;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbars for Riverside dark charcoal theme */
+h1, h2, h3, .font-heading {
+  font-family: var(--font-instrument), var(--font-inter), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Riverside Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f1118;
+  background: #0a0b0e;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #232736;
+  background: #1f242e;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #33394d;
+  background: #2a313e;
 }
 
 /* Focus styles for keyboard accessibility */
 *:focus-visible {
-  outline: 2px solid #7c3aed;
+  outline: 2px solid #c0915a;
   outline-offset: 2px;
 }

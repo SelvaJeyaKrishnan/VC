@@ -6,23 +6,18 @@ import {
   Download,
   Play,
   Clock,
-  HardDrive,
   RefreshCw,
   Search,
-  ExternalLink,
-  ShieldCheck,
-  Disc,
-  X,
-  Volume2,
   Calendar,
   CheckCircle2,
-  AlertCircle,
   Video,
-  User,
-  Users,
+  Volume2,
   Layers,
+  X,
+  Disc,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import type { RecordingSession, RecordingTrack } from "@/lib/recordingStore";
 import type { Interview } from "@/types/studio";
 
@@ -99,7 +94,6 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        // Small delay to prevent browser download popup blocking
         await new Promise((r) => setTimeout(r, 400));
       }
     } catch (err) {
@@ -123,19 +117,19 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
   return (
     <div className="space-y-6">
       {/* Top action & search bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#202534] bg-[#141721] p-5 shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#1f242e] bg-[#13161c] p-5 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <FileVideo className="h-4 w-4 text-purple-400" />
-            <h3 className="text-sm font-bold text-white tracking-wide">
+            <FileVideo className="h-4 w-4 text-[#c0915a]" />
+            <h3 className="font-heading text-sm font-bold text-white tracking-wide">
               Studio Recordings & Separate Tracks
             </h3>
-            <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-purple-300">
+            <span className="rounded bg-[#c0915a]/15 border border-[#c0915a]/30 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-[#cf9f67]">
               Separate Stems
             </span>
           </div>
-          <p className="text-xs text-slate-400">
-            Download pristine, isolated host and guest audio & video tracks for your post-production editing workflow.
+          <p className="text-xs text-[#8c94a4]">
+            Download pristine, isolated host and guest audio & video tracks for post-production editing.
           </p>
         </div>
 
@@ -143,7 +137,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
           <button
             type="button"
             onClick={loadRecordings}
-            className="flex items-center gap-1.5 rounded-xl border border-[#282d3d] bg-[#1a1e2b] px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#23283a] transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 rounded-lg border border-[#242a36] bg-[#161a22] px-3.5 py-2 text-xs font-semibold text-[#d1d5db] hover:text-white transition-colors cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
@@ -154,36 +148,36 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
       {/* Search Input */}
       {sessions.length > 0 && (
         <div className="relative max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6b7280]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search recordings by title, room ID, or participant..."
-            className="w-full rounded-xl border border-[#232736] bg-[#12141c] pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors"
+            placeholder="Search recordings by title, studio ID, or guest..."
+            className="w-full rounded-lg border border-[#242a36] bg-[#111318] pl-9 pr-4 py-2 text-xs text-[#e5e7eb] placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none transition-colors"
           />
         </div>
       )}
 
       {/* Empty State */}
       {filteredSessions.length === 0 && !isLoading && (
-        <div className="rounded-2xl border border-dashed border-[#232736] bg-[#12141c]/50 p-12 text-center max-w-xl mx-auto space-y-4">
-          <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-            <FileVideo className="h-7 w-7" />
+        <div className="rounded-xl border border-dashed border-[#1f242e] bg-[#111318]/50 p-12 text-center max-w-xl mx-auto space-y-4">
+          <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-[#c0915a]/10 text-[#c0915a] border border-[#c0915a]/20">
+            <FileVideo className="h-6 w-6 stroke-[1.8]" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">
+            <h3 className="font-heading text-sm font-bold text-white">
               {searchQuery ? "No matching recordings found" : "No recordings captured yet"}
             </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
-              When you record in OneGuest Studio, each participant&apos;s audio and video track will automatically appear here for instant preview and isolated separate track downloads.
+            <p className="text-xs text-[#8c94a4] mt-1 max-w-sm mx-auto leading-relaxed">
+              When you record in OneGuest Studio, each participant&apos;s audio and video track will automatically appear here for instant preview and isolated stem downloads.
             </p>
           </div>
           {onStartSession && (
             <button
               type="button"
               onClick={onStartSession}
-              className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] transition-all cursor-pointer"
             >
               <Disc className="h-3.5 w-3.5" />
               <span>Launch Studio Session</span>
@@ -210,31 +204,31 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
           return (
             <div
               key={session.roomId}
-              className="rounded-2xl border border-[#202534] bg-[#13151f] overflow-hidden transition-all hover:border-[#2e3549] shadow-2xl"
+              className="rounded-xl border border-[#1f242e] bg-[#13161c] overflow-hidden transition-all hover:border-[#2a313e] shadow-sm"
             >
               {/* Riverside Session Header */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f232e] px-6 py-4 bg-[#0e1017]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1a1e26] px-6 py-4 bg-[#0f1115]">
                 <div className="flex items-center gap-3.5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30 shrink-0">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#c0915a]/15 text-[#c0915a] border border-[#c0915a]/30 shrink-0">
                     <FileVideo className="h-5 w-5 stroke-[2.2]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-bold text-white tracking-wide">
+                      <h4 className="font-heading text-sm font-bold text-white tracking-wide">
                         {sessionTitle}
                       </h4>
-                      <span className="font-mono text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">
+                      <span className="font-mono text-[10px] font-semibold text-[#cf9f67] bg-[#c0915a]/10 border border-[#c0915a]/20 px-2 py-0.5 rounded">
                         {session.roomId}
                       </span>
-                      <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                      <span className="rounded bg-[#10b981]/15 border border-[#10b981]/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#10b981] flex items-center gap-1">
                         <CheckCircle2 className="h-2.5 w-2.5" />
                         <span>Synchronized Stems</span>
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1 flex-wrap">
+                    <div className="flex items-center gap-3 text-[11px] text-[#8c94a4] mt-1 flex-wrap">
                       <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-slate-500" />
+                        <Calendar className="h-3 w-3 text-[#6b7280]" />
                         <span>
                           {new Date(session.recordedAt).toLocaleDateString()} at{" "}
                           {new Date(session.recordedAt).toLocaleTimeString([], {
@@ -245,7 +239,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-slate-500" />
+                        <Clock className="h-3 w-3 text-[#6b7280]" />
                         <span>{formatDuration(session.durationSeconds)}</span>
                       </span>
                       <span>•</span>
@@ -256,19 +250,28 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                   </div>
                 </div>
 
-                {/* Master Riverside Action: Download All Tracks */}
-                <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                {/* Master Riverside Actions */}
+                <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+                  <Link
+                    href={`/editor/${encodeURIComponent(session.roomId)}`}
+                    className="flex items-center gap-1.5 rounded-lg border border-[#c0915a]/40 bg-[#c0915a]/10 hover:bg-[#c0915a]/20 px-3.5 py-2 text-xs font-semibold text-[#cf9f67] transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
+                    title="Open text-based video editor and AI magic clips"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-[#c0915a]" />
+                    <span>Open in Studio Editor</span>
+                  </Link>
+
                   <button
                     type="button"
                     disabled={isDownloadingAll === session.roomId}
                     onClick={() => handleDownloadAll(session)}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] transition-all cursor-pointer disabled:opacity-50"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>
                       {isDownloadingAll === session.roomId
                         ? "Downloading Tracks..."
-                        : "Download All Separate Tracks"}
+                        : "Download All Tracks"}
                     </span>
                   </button>
                 </div>
@@ -278,22 +281,22 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
               <div className="p-5 space-y-4">
                 {/* 1. Host Tracks Card */}
                 {hostTracks.length > 0 && (
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-4 space-y-3">
-                    <div className="flex items-center justify-between border-b border-[#1c1f2b] pb-2.5">
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#1a1e26] pb-2.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-white text-xs font-bold ring-1 ring-purple-400/40">
+                        <div className="flex h-6 w-6 items-center justify-center rounded bg-[#c0915a] text-[#0a0b0e] text-xs font-bold">
                           {hostName[0]?.toUpperCase() || "H"}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-white">{hostName}</span>
-                            <span className="rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider">
+                            <span className="rounded bg-[#c0915a]/20 text-[#cf9f67] border border-[#c0915a]/30 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider">
                               Host
                             </span>
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">
+                      <span className="text-[10px] font-mono text-[#8c94a4]">
                         {hostTracks.length} Isolated Stem{hostTracks.length > 1 ? "s" : ""}
                       </span>
                     </div>
@@ -307,19 +310,19 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                         return (
                           <div
                             key={track.fileName}
-                            className="flex items-center justify-between rounded-lg border border-[#1f232e] bg-[#12141c] p-3 hover:border-purple-500/40 transition-colors"
+                            className="flex items-center justify-between rounded-lg border border-[#1f242e] bg-[#13161c] p-3 hover:border-[#c0915a]/40 transition-colors"
                           >
                             <div className="space-y-1 min-w-0 pr-3">
                               <div className="flex items-center gap-2">
-                                <div className="p-1 rounded-md bg-purple-500/10 text-purple-400">
+                                <div className="p-1 rounded bg-[#c0915a]/10 text-[#c0915a]">
                                   {isAudio ? <Volume2 className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
                                 </div>
-                                <span className="text-xs font-bold text-slate-200 truncate">
+                                <span className="text-xs font-semibold text-[#e5e7eb] truncate">
                                   {stemName}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono pl-6">
-                                <span className="text-slate-300 font-semibold">{formatFileSize(track.fileSize)}</span>
+                              <div className="flex items-center gap-2 text-[10px] text-[#8c94a4] font-mono pl-6">
+                                <span className="text-[#d1d5db] font-semibold">{formatFileSize(track.fileSize)}</span>
                                 <span>•</span>
                                 <span>{formatLabel}</span>
                               </div>
@@ -335,15 +338,15 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                                     sessionTitle,
                                   })
                                 }
-                                className="rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                className="rounded border border-[#242a36] bg-[#161a22] hover:bg-[#202534] p-1.5 text-[#d1d5db] hover:text-white transition-colors cursor-pointer"
                                 title="Preview track"
                               >
-                                <Play className="h-3 w-3 fill-slate-300" />
+                                <Play className="h-3 w-3 fill-[#d1d5db]" />
                               </button>
                               <a
                                 href={track.downloadUrl}
                                 download={track.fileName}
-                                className="flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                                className="flex items-center gap-1 rounded bg-[#c0915a] hover:bg-[#cf9f67] px-2.5 py-1.5 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
                                 title={`Download ${stemName}`}
                               >
                                 <Download className="h-3 w-3" />
@@ -359,22 +362,22 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
 
                 {/* 2. Guest Tracks Card */}
                 {guestTracks.length > 0 && (
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-4 space-y-3">
-                    <div className="flex items-center justify-between border-b border-[#1c1f2b] pb-2.5">
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#1a1e26] pb-2.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white text-xs font-bold ring-1 ring-cyan-400/40">
+                        <div className="flex h-6 w-6 items-center justify-center rounded bg-[#4c6a92] text-white text-xs font-bold">
                           {guestName[0]?.toUpperCase() || "G"}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-white">{guestName}</span>
-                            <span className="rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider">
+                            <span className="rounded bg-[#4c6a92]/20 text-[#82a4d4] border border-[#4c6a92]/30 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider">
                               Guest
                             </span>
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">
+                      <span className="text-[10px] font-mono text-[#8c94a4]">
                         {guestTracks.length} Isolated Stem{guestTracks.length > 1 ? "s" : ""}
                       </span>
                     </div>
@@ -388,19 +391,19 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                         return (
                           <div
                             key={track.fileName}
-                            className="flex items-center justify-between rounded-lg border border-[#1f232e] bg-[#12141c] p-3 hover:border-cyan-500/40 transition-colors"
+                            className="flex items-center justify-between rounded-lg border border-[#1f242e] bg-[#13161c] p-3 hover:border-[#4c6a92]/40 transition-colors"
                           >
                             <div className="space-y-1 min-w-0 pr-3">
                               <div className="flex items-center gap-2">
-                                <div className="p-1 rounded-md bg-cyan-500/10 text-cyan-400">
+                                <div className="p-1 rounded bg-[#4c6a92]/10 text-[#4c6a92]">
                                   {isAudio ? <Volume2 className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
                                 </div>
-                                <span className="text-xs font-bold text-slate-200 truncate">
+                                <span className="text-xs font-semibold text-[#e5e7eb] truncate">
                                   {stemName}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono pl-6">
-                                <span className="text-slate-300 font-semibold">{formatFileSize(track.fileSize)}</span>
+                              <div className="flex items-center gap-2 text-[10px] text-[#8c94a4] font-mono pl-6">
+                                <span className="text-[#d1d5db] font-semibold">{formatFileSize(track.fileSize)}</span>
                                 <span>•</span>
                                 <span>{formatLabel}</span>
                               </div>
@@ -416,15 +419,15 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                                     sessionTitle,
                                   })
                                 }
-                                className="rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                className="rounded border border-[#242a36] bg-[#161a22] hover:bg-[#202534] p-1.5 text-[#d1d5db] hover:text-white transition-colors cursor-pointer"
                                 title="Preview track"
                               >
-                                <Play className="h-3 w-3 fill-slate-300" />
+                                <Play className="h-3 w-3 fill-[#d1d5db]" />
                               </button>
                               <a
                                 href={track.downloadUrl}
                                 download={track.fileName}
-                                className="flex items-center gap-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                                className="flex items-center gap-1 rounded bg-[#4c6a92] hover:bg-[#5a7ca9] px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
                                 title={`Download ${stemName}`}
                               >
                                 <Download className="h-3 w-3" />
@@ -440,12 +443,12 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
 
                 {/* 3. Composite Backup Card (if present) */}
                 {compositeTracks.length > 0 && (
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-4 space-y-2">
-                    <div className="flex items-center justify-between border-b border-[#1c1f2b] pb-2">
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-4 space-y-2">
+                    <div className="flex items-center justify-between border-b border-[#1a1e26] pb-2">
                       <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-amber-400" />
+                        <Layers className="h-4 w-4 text-[#f59e0b]" />
                         <span className="text-xs font-bold text-white">Side-by-Side Composite Interview Video</span>
-                        <span className="rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider">
+                        <span className="rounded bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider">
                           Composite Backup
                         </span>
                       </div>
@@ -454,11 +457,11 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                     {compositeTracks.map((track) => (
                       <div
                         key={track.fileName}
-                        className="flex items-center justify-between rounded-lg border border-[#1f232e] bg-[#12141c] p-3"
+                        className="flex items-center justify-between rounded-lg border border-[#1f242e] bg-[#13161c] p-3"
                       >
                         <div className="space-y-0.5 text-xs">
-                          <span className="font-semibold text-slate-200">Synchronized Host & Guest Split View</span>
-                          <p className="text-[10px] text-slate-400 font-mono">
+                          <span className="font-semibold text-[#e5e7eb]">Synchronized Host & Guest Split View</span>
+                          <p className="text-[10px] text-[#8c94a4] font-mono">
                             {formatFileSize(track.fileSize)} • MP4/WebM Broadcast
                           </p>
                         </div>
@@ -473,15 +476,15 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                                 sessionTitle,
                               })
                             }
-                            className="rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            className="rounded border border-[#242a36] bg-[#161a22] hover:bg-[#202534] p-1.5 text-[#d1d5db] hover:text-white transition-colors cursor-pointer"
                             title="Preview track"
                           >
-                            <Play className="h-3 w-3 fill-slate-300" />
+                            <Play className="h-3 w-3 fill-[#d1d5db]" />
                           </button>
                           <a
                             href={track.downloadUrl}
                             download={track.fileName}
-                            className="flex items-center gap-1 rounded-lg bg-amber-600 hover:bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                            className="flex items-center gap-1 rounded bg-[#f59e0b] hover:bg-[#d97706] px-2.5 py-1.5 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
                           >
                             <Download className="h-3 w-3" />
                             <span>Download Composite</span>
@@ -497,26 +500,26 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
         })}
       </div>
 
-      {/* Media Preview Modal (supports both video and dedicated audio tracks) */}
+      {/* Media Preview Modal */}
       {previewTrack && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-3xl rounded-2xl border border-[#282d3d] bg-[#12141f] p-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#232736] mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-3xl rounded-xl border border-[#242a36] bg-[#13161c] p-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1a1e26] mb-4">
               <div className="flex items-center gap-2">
                 {previewTrack.track.trackType === "audio" ||
                 previewTrack.track.mimeType.startsWith("audio") ? (
-                  <Volume2 className="h-4 w-4 text-purple-400" />
+                  <Volume2 className="h-4 w-4 text-[#c0915a]" />
                 ) : (
-                  <FileVideo className="h-4 w-4 text-purple-400" />
+                  <FileVideo className="h-4 w-4 text-[#c0915a]" />
                 )}
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                <h4 className="font-heading text-xs font-bold text-white uppercase tracking-wider">
                   Raw Track Preview: {previewTrack.track.fileName} ({previewTrack.track.role})
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewTrack(null)}
-                className="rounded-lg p-1 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                className="rounded p-1 text-[#8c94a4] hover:text-white hover:bg-[#1a1e26] transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -524,17 +527,16 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
 
             {previewTrack.track.trackType === "audio" ||
             previewTrack.track.mimeType.startsWith("audio") ? (
-              /* Dedicated Audio Track Preview Player */
-              <div className="flex flex-col items-center justify-center rounded-xl bg-[#0c0d14] p-8 border border-[#232736] space-y-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                  <Volume2 className="h-8 w-8" />
+              <div className="flex flex-col items-center justify-center rounded-lg bg-[#0c0e12] p-8 border border-[#1f242e] space-y-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#c0915a]/15 text-[#c0915a] border border-[#c0915a]/30">
+                  <Volume2 className="h-7 w-7" />
                 </div>
                 <div className="text-center">
-                  <h5 className="text-sm font-bold text-white">
+                  <h5 className="font-heading text-sm font-bold text-white">
                     Isolated {previewTrack.track.role === "host" ? "Host" : "Guest"} Audio Track
                   </h5>
-                  <p className="text-xs text-slate-400 font-mono mt-1">
-                    48kHz Broadcast Opus • No cross-bleeding
+                  <p className="text-xs text-[#8c94a4] font-mono mt-1">
+                    48kHz Broadcast Opus • No cross-talk bleed
                   </p>
                 </div>
                 <audio
@@ -545,8 +547,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                 />
               </div>
             ) : (
-              /* Video / Composite Track Preview Player */
-              <div className="relative aspect-video rounded-xl bg-black overflow-hidden border border-[#232736]">
+              <div className="relative aspect-video rounded-lg bg-black overflow-hidden border border-[#1f242e]">
                 <video
                   src={previewTrack.track.downloadUrl}
                   controls
@@ -556,15 +557,15 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-4 mt-2">
-              <span className="text-xs text-slate-400 font-mono">
+            <div className="flex items-center justify-between pt-4 mt-2 border-t border-[#1a1e26]">
+              <span className="text-xs text-[#8c94a4] font-mono">
                 {previewTrack.track.fileName} • {formatFileSize(previewTrack.track.fileSize)}
               </span>
 
               <a
                 href={previewTrack.track.downloadUrl}
                 download={previewTrack.track.fileName}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span>Download Master Track</span>

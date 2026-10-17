@@ -5,9 +5,9 @@
 [![LiveKit](https://img.shields.io/badge/LiveKit-2.23.0-purple?logo=webrtc)](https://livekit.io/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
 [![Render Deploy](https://img.shields.io/badge/Deploy-Render-46E3B7?logo=render)](https://render.com/)
-[![Tests](https://img.shields.io/badge/Tests-26%20Passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-31%20Passed-brightgreen)](tests/)
 
-**OneGuest Studio** is a private, high-fidelity remote recording and 1-on-1 interview platform inspired by Riverside's core broadcast workflow. Purpose-built exclusively for creator interviews, remote podcasts, and executive conversations, OneGuest Studio delivers **4 isolated, uncompressed stems** per interview (Host Video, Host Audio, Guest Video, Guest Audio) alongside an in-studio script teleprompter and zero-account guest onboarding.
+**OneGuest Studio** is a private, high-fidelity remote recording and 1-on-1 interview platform inspired by Riverside's core broadcast workflow. Purpose-built exclusively for creator interviews, remote podcasts, and executive conversations, OneGuest Studio delivers **4 isolated, uncompressed stems** per interview (Host Video, Host Audio, Guest Video, Guest Audio) alongside an in-studio script teleprompter, zero-account guest onboarding, text-based transcript video editor, 9:16 Magic Clips generator, and multi-destination RTMP live streaming.
 
 ---
 
@@ -92,7 +92,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Run the automated test suite:
 ```bash
-# Run all 26 unit and E2E simulation tests
+# Run all 31 unit and E2E simulation tests
 npm test
 
 # Run TypeScript type-checking

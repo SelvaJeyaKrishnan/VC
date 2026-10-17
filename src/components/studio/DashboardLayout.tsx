@@ -14,30 +14,35 @@ import {
   Check,
   ArrowRight,
   ShieldCheck,
-  Disc,
-  Sparkles,
-  Layers,
   ChevronRight,
   Menu,
   X,
   Calendar,
-  Clock,
   Trash2,
   RefreshCw,
   Search,
-  ExternalLink,
-  CheckCircle2,
   AlertCircle,
   HardDrive,
   Lock,
+  Layers,
+  Sparkles,
+  ExternalLink,
+  Scissors,
+  Download,
+  Tv,
+  Smartphone,
+  Play,
+  Subtitles,
+  FileText,
 } from "lucide-react";
+import Link from "next/link";
 import { generateRoomId } from "@/lib/utils";
 import { PreflightMediaTest } from "./PreflightMediaTest";
 import { RecordingsLibrary } from "./RecordingsLibrary";
 import type { Interview } from "@/types/studio";
 import type { RecordingSession } from "@/lib/recordingStore";
 
-export type DashboardTab = "dashboard" | "interviews" | "recordings" | "settings";
+export type DashboardTab = "dashboard" | "interviews" | "recordings" | "editor" | "streaming" | "settings";
 
 type StatusFilter = "all" | "scheduled" | "active" | "completed";
 
@@ -86,7 +91,7 @@ export function DashboardLayout() {
     }
   }, []);
 
-  // Handle guest invite link redirection: If guest arrives via ?room= or ?code=, take directly to Green Room
+  // Handle guest invite link redirection
   useEffect(() => {
     const roomParam = searchParams.get("room") || searchParams.get("code");
     const nameParam = searchParams.get("name") || "";
@@ -102,6 +107,10 @@ export function DashboardLayout() {
       setActiveTab("dashboard");
     } else if (tabParam === "recordings") {
       setActiveTab("recordings");
+    } else if (tabParam === "editor") {
+      setActiveTab("editor");
+    } else if (tabParam === "streaming" || tabParam === "stream") {
+      setActiveTab("streaming");
     } else if (tabParam === "settings") {
       setActiveTab("settings");
     } else if (tabParam === "interviews" || tabParam === "overview" || tabParam === "sessions") {
@@ -203,7 +212,7 @@ export function DashboardLayout() {
 
     let cleanCode = guestCode.trim();
     if (!cleanCode) {
-      setGuestError("Please enter a room code or invite URL.");
+      setGuestError("Please enter a studio room code or invite URL.");
       return;
     }
 
@@ -248,7 +257,7 @@ export function DashboardLayout() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create interview");
+        throw new Error(data.error || "Failed to create studio session");
       }
       setCreatedInviteUrl(data.inviteUrl);
       setModalTitle("");
@@ -256,14 +265,14 @@ export function DashboardLayout() {
       setModalPasscode("");
       await loadData();
     } catch (err: unknown) {
-      setModalError(err instanceof Error ? err.message : "Error creating interview");
+      setModalError(err instanceof Error ? err.message : "Error creating session");
     } finally {
       setIsCreatingSession(false);
     }
   };
 
   const handleDeleteInterview = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this interview record?")) return;
+    if (!confirm("Are you sure you want to delete this studio session?")) return;
     try {
       const res = await fetch(`/api/interviews/${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -306,29 +315,27 @@ export function DashboardLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#0a0c10] text-slate-100 font-sans select-none antialiased">
+    <div className="flex min-h-screen bg-[#0a0b0e] text-[#f3f4f6] font-sans antialiased">
       {/* 1. RIVERSIDE-STYLE SIDEBAR (Desktop) */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-[#1e2230] bg-[#11131a] p-4 shrink-0 justify-between">
-        <div className="space-y-5">
+      <aside className="hidden lg:flex w-64 flex-col border-r border-[#1a1e26] bg-[#0f1115] p-4 shrink-0 justify-between select-none">
+        <div className="space-y-6">
           {/* Brand Header */}
-          <div className="flex items-center gap-3 px-2 py-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white shadow-lg shadow-purple-950/40 ring-1 ring-purple-400/20">
-              <Radio className="h-5 w-5 stroke-[2.2]" />
+          <div className="flex items-center gap-3 px-2 py-1">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c0915a] text-[#0a0b0e] font-bold shadow-md shadow-[#c0915a]/20">
+              <Radio className="h-4.5 w-4.5 stroke-[2.4]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-bold tracking-tight text-white text-sm">OneGuest</span>
-                <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-purple-300">
+                <span className="font-heading font-bold text-white text-base tracking-tight">OneGuest</span>
+                <span className="rounded bg-[#c0915a]/15 border border-[#c0915a]/30 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-[#cf9f67]">
                   Studio
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
-                <span className="truncate">Creator Interviews</span>
-              </div>
+              <p className="text-[11px] text-[#8c94a4] font-medium truncate">Remote Recording Studio</p>
             </div>
           </div>
 
-          {/* Primary "+ New Interview" Action */}
+          {/* Primary "+ New Studio" Action */}
           <button
             type="button"
             onClick={() => {
@@ -336,124 +343,175 @@ export function DashboardLayout() {
               setCopiedModalLink(false);
               setShowCreateModal(true);
             }}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-4 py-2.5 text-xs font-bold transition-all active:scale-[0.98] shadow-sm cursor-pointer"
           >
-            <Plus className="h-4 w-4 stroke-[2.8]" />
-            <span>New Interview</span>
+            <Plus className="h-4 w-4 stroke-[2.6]" />
+            <span>New Studio Session</span>
           </button>
 
-          {/* Navigation Items (The 4 Core Riverside Views) */}
+          {/* Navigation Items */}
           <nav className="space-y-1">
-            {/* 1. Dashboard */}
             <button
               type="button"
               onClick={() => setActiveTab("dashboard")}
-              className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
                 activeTab === "dashboard"
-                  ? "bg-[#1d212d] text-white border border-[#2b3244] shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-[#161922]"
+                  ? "bg-[#181c24] text-white font-semibold border-l-2 border-[#c0915a]"
+                  : "text-[#9ca3af] hover:text-white hover:bg-[#14171d]"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <LayoutDashboard className={`h-4 w-4 ${activeTab === "dashboard" ? "text-purple-400" : "text-slate-400"}`} />
+              <div className="flex items-center gap-2.5">
+                <LayoutDashboard className={`h-4 w-4 ${activeTab === "dashboard" ? "text-[#c0915a]" : "text-[#8c94a4]"}`} />
                 <span>Dashboard</span>
               </div>
             </button>
 
-            {/* 2. Interviews */}
             <button
               type="button"
               onClick={() => setActiveTab("interviews")}
-              className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
                 activeTab === "interviews"
-                  ? "bg-[#1d212d] text-white border border-[#2b3244] shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-[#161922]"
+                  ? "bg-[#181c24] text-white font-semibold border-l-2 border-[#c0915a]"
+                  : "text-[#9ca3af] hover:text-white hover:bg-[#14171d]"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Radio className={`h-4 w-4 ${activeTab === "interviews" ? "text-purple-400" : "text-slate-400"}`} />
-                <span>Interviews</span>
+              <div className="flex items-center gap-2.5">
+                <Radio className={`h-4 w-4 ${activeTab === "interviews" ? "text-[#c0915a]" : "text-[#8c94a4]"}`} />
+                <span>Studios</span>
               </div>
               {interviews.length > 0 && (
-                <span className="rounded-full bg-[#202533] px-2 py-0.5 text-[10px] font-mono font-medium text-slate-300">
+                <span className="rounded bg-[#1a1e26] px-1.5 py-0.5 text-[10px] font-mono text-[#9ca3af]">
                   {interviews.length}
                 </span>
               )}
             </button>
 
-            {/* 3. Recordings */}
             <button
               type="button"
               onClick={() => setActiveTab("recordings")}
-              className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
                 activeTab === "recordings"
-                  ? "bg-[#1d212d] text-white border border-[#2b3244] shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-[#161922]"
+                  ? "bg-[#181c24] text-white font-semibold border-l-2 border-[#c0915a]"
+                  : "text-[#9ca3af] hover:text-white hover:bg-[#14171d]"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <FileVideo className={`h-4 w-4 ${activeTab === "recordings" ? "text-purple-400" : "text-slate-400"}`} />
+              <div className="flex items-center gap-2.5">
+                <FileVideo className={`h-4 w-4 ${activeTab === "recordings" ? "text-[#c0915a]" : "text-[#8c94a4]"}`} />
                 <span>Recordings</span>
               </div>
               {Object.keys(recordingsByRoom).length > 0 && (
-                <span className="rounded-full bg-[#202533] px-2 py-0.5 text-[10px] font-mono font-medium text-emerald-400">
+                <span className="rounded bg-[#10b981]/15 border border-[#10b981]/30 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[#10b981]">
                   {Object.keys(recordingsByRoom).length}
                 </span>
               )}
             </button>
 
-            {/* 4. Settings */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("editor")}
+              className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                activeTab === "editor"
+                  ? "bg-[#181c24] text-white font-semibold border-l-2 border-[#c0915a]"
+                  : "text-[#9ca3af] hover:text-white hover:bg-[#14171d]"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className={`h-4 w-4 ${activeTab === "editor" ? "text-[#c0915a]" : "text-[#8c94a4]"}`} />
+                <span>Editor & Clips</span>
+              </div>
+              <span className="rounded bg-[#c0915a]/15 border border-[#c0915a]/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#cf9f67]">
+                AI
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("streaming")}
+              className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                activeTab === "streaming"
+                  ? "bg-[#181c24] text-white font-semibold border-l-2 border-[#c0915a]"
+                  : "text-[#9ca3af] hover:text-white hover:bg-[#14171d]"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Radio className={`h-4 w-4 ${activeTab === "streaming" ? "text-rose-400" : "text-[#8c94a4]"}`} />
+                <span>Live Streaming</span>
+              </div>
+              <span className="rounded bg-rose-950/60 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300">
+                RTMP
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab("settings")}
-              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
                 activeTab === "settings"
-                  ? "bg-[#1d212d] text-white border border-[#2b3244] shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-[#161922]"
+                  ? "bg-[#181c24] text-white font-semibold border-l-2 border-[#c0915a]"
+                  : "text-[#9ca3af] hover:text-white hover:bg-[#14171d]"
               }`}
             >
-              <Sliders className={`h-4 w-4 ${activeTab === "settings" ? "text-purple-400" : "text-slate-400"}`} />
+              <Sliders className={`h-4 w-4 ${activeTab === "settings" ? "text-[#c0915a]" : "text-[#8c94a4]"}`} />
               <span>Settings</span>
             </button>
           </nav>
         </div>
+
+        {/* User / Studio Profile Widget */}
+        <div className="border-t border-[#1a1e26] pt-3.5">
+          <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-[#14171d] transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1e2430] border border-[#2a313e] font-bold text-xs text-[#c0915a]">
+              H
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white truncate">{hostName || "Host Creator"}</p>
+              <p className="text-[10px] text-[#8c94a4] truncate">Primary Host Account</p>
+            </div>
+          </div>
+        </div>
       </aside>
 
       {/* 2. MAIN WORKSPACE */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0a0c10]">
-        {/* Top Navbar */}
-        <header className="h-16 border-b border-[#1e2230] bg-[#10121a]/95 px-4 sm:px-8 flex items-center justify-between shrink-0 backdrop-blur-md sticky top-0 z-30">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#0a0b0e]">
+        {/* Top Header */}
+        <header className="h-14 border-b border-[#1a1e26] bg-[#0f1115]/95 px-4 sm:px-8 flex items-center justify-between shrink-0 backdrop-blur-md sticky top-0 z-30 select-none">
           {/* Mobile hamburger & brand */}
           <div className="flex items-center gap-3 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="p-2 rounded-lg border border-[#232736] bg-[#161922] text-slate-300"
+              className="p-1.5 rounded-md border border-[#242a36] bg-[#14171d] text-[#d1d5db]"
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
             <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-purple-400" />
-              <span className="font-bold text-white text-sm">OneGuest Studio</span>
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-[#c0915a] text-[#0a0b0e] font-bold text-xs">
+                <Radio className="h-3.5 w-3.5" />
+              </div>
+              <span className="font-heading font-bold text-white text-sm">OneGuest Studio</span>
             </div>
           </div>
 
           {/* Desktop Breadcrumbs */}
-          <div className="hidden lg:flex items-center gap-2 text-xs text-slate-400">
-            <span className="text-slate-500 font-medium">OneGuest Studio</span>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
-            <span className="font-semibold text-slate-200 capitalize">
+          <div className="hidden lg:flex items-center gap-2 text-xs text-[#8c94a4]">
+            <span className="text-[#6b7280] font-medium">OneGuest Studio</span>
+            <ChevronRight className="h-3 w-3 text-[#4b5563]" />
+            <span className="font-semibold text-[#e5e7eb] capitalize">
               {activeTab === "dashboard"
-                ? "Dashboard Overview"
+                ? "Studio Overview"
                 : activeTab === "interviews"
-                ? "Interviews & Studio Rooms"
+                ? "Studio Sessions"
                 : activeTab === "recordings"
-                ? "Recording Library & Stems"
-                : "Hardware & Studio Settings"}
+                ? "Recording Library"
+                : activeTab === "editor"
+                ? "Studio Editor & AI Clips"
+                : activeTab === "streaming"
+                ? "RTMP Live Streaming Hub"
+                : "Studio Hardware & Preferences"}
             </span>
           </div>
 
-          {/* Top Bar Actions (Mobile Quick Action) */}
+          {/* Top Bar Actions */}
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -462,26 +520,26 @@ export function DashboardLayout() {
                 setCopiedModalLink(false);
                 setShowCreateModal(true);
               }}
-              className="lg:hidden flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+              className="lg:hidden flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-3 py-1.5 text-xs font-bold transition-all cursor-pointer"
             >
-              <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
-              <span>New Interview</span>
+              <Plus className="h-3.5 w-3.5 stroke-[2.6]" />
+              <span>New Studio</span>
             </button>
           </div>
         </header>
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-b border-[#1e2230] bg-[#11131a] p-3 space-y-1">
+          <div className="lg:hidden border-b border-[#1a1e26] bg-[#0f1115] p-3 space-y-1">
             <button
               type="button"
               onClick={() => {
                 setActiveTab("dashboard");
                 setMobileMenuOpen(false);
               }}
-              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-[#1a1d27]"
+              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-[#d1d5db] hover:bg-[#14171d]"
             >
-              <LayoutDashboard className="h-4 w-4 text-purple-400" />
+              <LayoutDashboard className="h-4 w-4 text-[#c0915a]" />
               <span>Dashboard</span>
             </button>
             <button
@@ -490,13 +548,13 @@ export function DashboardLayout() {
                 setActiveTab("interviews");
                 setMobileMenuOpen(false);
               }}
-              className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-[#1a1d27]"
+              className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-[#d1d5db] hover:bg-[#14171d]"
             >
               <div className="flex items-center gap-2.5">
-                <Radio className="h-4 w-4 text-purple-400" />
-                <span>Interviews</span>
+                <Radio className="h-4 w-4 text-[#c0915a]" />
+                <span>Studios</span>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">{interviews.length}</span>
+              <span className="text-[10px] font-mono text-[#8c94a4]">{interviews.length}</span>
             </button>
             <button
               type="button"
@@ -504,13 +562,41 @@ export function DashboardLayout() {
                 setActiveTab("recordings");
                 setMobileMenuOpen(false);
               }}
-              className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-[#1a1d27]"
+              className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-[#d1d5db] hover:bg-[#14171d]"
             >
               <div className="flex items-center gap-2.5">
-                <FileVideo className="h-4 w-4 text-emerald-400" />
+                <FileVideo className="h-4 w-4 text-[#10b981]" />
                 <span>Recordings</span>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">{Object.keys(recordingsByRoom).length}</span>
+              <span className="text-[10px] font-mono text-[#8c94a4]">{Object.keys(recordingsByRoom).length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("editor");
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-[#d1d5db] hover:bg-[#14171d]"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="h-4 w-4 text-[#cf9f67]" />
+                <span>Editor & Clips</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#cf9f67] font-bold">AI</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("streaming");
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-[#d1d5db] hover:bg-[#14171d]"
+            >
+              <div className="flex items-center gap-2.5">
+                <Radio className="h-4 w-4 text-rose-400" />
+                <span>Live Streaming</span>
+              </div>
+              <span className="text-[10px] font-mono text-rose-300 font-bold">RTMP</span>
             </button>
             <button
               type="button"
@@ -518,9 +604,9 @@ export function DashboardLayout() {
                 setActiveTab("settings");
                 setMobileMenuOpen(false);
               }}
-              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-[#1a1d27]"
+              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-[#d1d5db] hover:bg-[#14171d]"
             >
-              <Sliders className="h-4 w-4 text-slate-400" />
+              <Sliders className="h-4 w-4 text-[#8c94a4]" />
               <span>Settings</span>
             </button>
           </div>
@@ -534,70 +620,70 @@ export function DashboardLayout() {
           {activeTab === "dashboard" && (
             <div className="space-y-8">
               {/* Studio Overview Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1c202d]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1a1e26]">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                  <h2 className="font-heading text-xl sm:text-2xl font-bold tracking-tight text-white">
                     Studio Overview
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    1-on-1 remote creator interviews with isolated host and guest track recording.
+                  <p className="text-xs text-[#8c94a4] mt-0.5">
+                    1-on-1 remote recording studio with isolated local audio & video tracks.
                   </p>
                 </div>
               </div>
 
               {/* 3 High-Impact Metric Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Interviews</span>
-                    <Radio className="h-4 w-4 text-purple-400" />
+                <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-4.5 space-y-2">
+                  <div className="flex items-center justify-between text-[#8c94a4]">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#9ca3af]">Total Studios</span>
+                    <Radio className="h-4 w-4 text-[#c0915a]" />
                   </div>
-                  <div className="text-2xl font-extrabold text-white">{interviews.length}</div>
-                  <p className="text-[11px] text-slate-400">Scheduled & active studio rooms</p>
+                  <div className="font-heading text-2xl font-bold text-white">{interviews.length}</div>
+                  <p className="text-[11px] text-[#8c94a4]">Configured studio rooms</p>
                 </div>
 
-                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Recorded Sessions</span>
-                    <FileVideo className="h-4 w-4 text-emerald-400" />
+                <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-4.5 space-y-2">
+                  <div className="flex items-center justify-between text-[#8c94a4]">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#9ca3af]">Recorded Takes</span>
+                    <FileVideo className="h-4 w-4 text-[#10b981]" />
                   </div>
-                  <div className="text-2xl font-extrabold text-white">{Object.keys(recordingsByRoom).length}</div>
-                  <p className="text-[11px] text-slate-400">Stored in recording manifest</p>
+                  <div className="font-heading text-2xl font-bold text-white">{Object.keys(recordingsByRoom).length}</div>
+                  <p className="text-[11px] text-[#8c94a4]">Sessions ready in library</p>
                 </div>
 
-                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Isolated Stems</span>
-                    <Layers className="h-4 w-4 text-cyan-400" />
+                <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-4.5 space-y-2">
+                  <div className="flex items-center justify-between text-[#8c94a4]">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#9ca3af]">Isolated Stems</span>
+                    <Layers className="h-4 w-4 text-[#4c6a92]" />
                   </div>
-                  <div className="text-2xl font-extrabold text-white">{totalRecordedStems}</div>
-                  <p className="text-[11px] text-slate-400">Host & Guest separate files</p>
+                  <div className="font-heading text-2xl font-bold text-white">{totalRecordedStems}</div>
+                  <p className="text-[11px] text-[#8c94a4]">Separate host & guest files</p>
                 </div>
               </div>
 
               {/* Riverside Launch Deck (Host + Guest) */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {/* 1. Instant Host Studio Session Card */}
-                <div className="rounded-2xl border border-[#202534] bg-gradient-to-b from-[#141722] to-[#0f1118] p-6 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-[#1f2433] pb-4">
+                <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-[#1a1e26] pb-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                        <Mic className="h-5 w-5 stroke-[2.2]" />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c0915a]/15 text-[#c0915a] border border-[#c0915a]/30">
+                        <Mic className="h-4.5 w-4.5 stroke-[2.2]" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white tracking-wide">Instant Studio Room</h3>
-                        <p className="text-xs text-slate-400">Launch studio now & invite 1 guest</p>
+                        <h3 className="font-heading text-sm font-bold text-white">Instant Studio Room</h3>
+                        <p className="text-xs text-[#8c94a4]">Launch recording studio & invite guest</p>
                       </div>
                     </div>
-                    <span className="rounded-md bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[10px] font-extrabold text-purple-300 uppercase tracking-wider">
-                      Host Mode
+                    <span className="rounded bg-[#c0915a]/15 border border-[#c0915a]/30 px-2 py-0.5 text-[10px] font-bold text-[#cf9f67] uppercase tracking-wider">
+                      Host
                     </span>
                   </div>
 
                   <form onSubmit={handleLaunchQuickStudio} className="space-y-3.5 pt-1">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        Host Display Name
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1">
+                        Host Name
                       </label>
                       <input
                         type="text"
@@ -605,31 +691,31 @@ export function DashboardLayout() {
                         value={hostName}
                         onChange={(e) => setHostName(e.target.value)}
                         placeholder="e.g. Creator Host"
-                        className="w-full rounded-xl border border-[#262c3b] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors"
+                        className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        Interview Session Title
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1">
+                        Studio Session Title
                       </label>
                       <input
                         type="text"
                         value={sessionTitle}
                         onChange={(e) => setSessionTitle(e.target.value)}
                         placeholder="e.g. Episode 10: Building with AI"
-                        className="w-full rounded-xl border border-[#262c3b] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors"
+                        className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none transition-colors"
                       />
                     </div>
 
                     {/* Room code & copy */}
-                    <div className="rounded-xl border border-[#212634] bg-[#0a0c10] p-3 space-y-1.5">
+                    <div className="rounded-lg border border-[#1a1e26] bg-[#0a0b0e] p-3 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Private Room ID</span>
+                        <span className="text-[10px] uppercase font-bold text-[#8c94a4]">Studio Room ID</span>
                         <button
                           type="button"
                           onClick={() => setRoomId(generateRoomId("og"))}
-                          className="text-[10px] text-purple-400 hover:text-purple-300 font-semibold cursor-pointer"
+                          className="text-[10px] text-[#c0915a] hover:text-[#cf9f67] font-semibold cursor-pointer"
                         >
                           Generate New
                         </button>
@@ -639,21 +725,21 @@ export function DashboardLayout() {
                           type="text"
                           readOnly
                           value={roomId}
-                          className="flex-1 font-mono text-xs font-bold text-purple-300 bg-transparent focus:outline-none"
+                          className="flex-1 font-mono text-xs font-semibold text-[#cf9f67] bg-transparent focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={handleCopyHostInvite}
-                          className="flex items-center gap-1.5 rounded-lg border border-[#2d3446] bg-[#161a24] px-2.5 py-1 text-xs text-slate-200 hover:text-white cursor-pointer transition-colors"
+                          className="flex items-center gap-1.5 rounded border border-[#242a36] bg-[#14171d] px-2.5 py-1 text-xs text-[#d1d5db] hover:text-white cursor-pointer transition-colors"
                         >
                           {copiedQuickLink ? (
                             <>
-                              <Check className="h-3 w-3 text-emerald-400" />
-                              <span className="text-emerald-300 text-[11px]">Copied</span>
+                              <Check className="h-3 w-3 text-[#10b981]" />
+                              <span className="text-[#10b981] text-[11px]">Copied</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="h-3 w-3 text-slate-400" />
+                              <Copy className="h-3 w-3 text-[#8c94a4]" />
                               <span className="text-[11px]">Copy Invite</span>
                             </>
                           )}
@@ -664,12 +750,12 @@ export function DashboardLayout() {
                     <button
                       type="submit"
                       disabled={isLaunching}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 text-xs font-bold shadow-lg shadow-purple-950/40 active:scale-[0.98] disabled:opacity-50 transition-all cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-4 py-2.5 text-xs font-bold transition-all cursor-pointer active:scale-[0.98] disabled:opacity-50"
                     >
                       {isLaunching ? (
                         <>
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          <span>Preparing Green Room...</span>
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#0a0b0e] border-t-transparent" />
+                          <span>Preparing Studio Lobby...</span>
                         </>
                       ) : (
                         <>
@@ -682,32 +768,32 @@ export function DashboardLayout() {
                 </div>
 
                 {/* 2. Join as Guest Card */}
-                <div className="rounded-2xl border border-[#202534] bg-gradient-to-b from-[#141722] to-[#0f1118] p-6 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-[#1f2433] pb-4">
+                <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-[#1a1e26] pb-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                        <Video className="h-5 w-5 stroke-[2.2]" />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4c6a92]/15 text-[#4c6a92] border border-[#4c6a92]/30">
+                        <Video className="h-4.5 w-4.5 stroke-[2.2]" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white tracking-wide">Join as Guest</h3>
-                        <p className="text-xs text-slate-400">Enter with a private invite link or code</p>
+                        <h3 className="font-heading text-sm font-bold text-white">Join as Guest</h3>
+                        <p className="text-xs text-[#8c94a4]">Enter with invite link or room code</p>
                       </div>
                     </div>
-                    <span className="rounded-md bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider">
-                      No Login Needed
+                    <span className="rounded bg-[#4c6a92]/15 border border-[#4c6a92]/30 px-2 py-0.5 text-[10px] font-bold text-[#82a4d4] uppercase tracking-wider">
+                      Guest Pass
                     </span>
                   </div>
 
                   {guestError && (
-                    <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-2.5 text-xs text-rose-300 font-medium">
+                    <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-2.5 text-xs text-rose-300 font-medium">
                       {guestError}
                     </div>
                   )}
 
                   <form onSubmit={handleJoinGuest} className="space-y-3.5 pt-1">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        Room Code or Invite Link
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1">
+                        Studio Code or Invite Link
                       </label>
                       <input
                         type="text"
@@ -715,13 +801,13 @@ export function DashboardLayout() {
                         value={guestCode}
                         onChange={(e) => setGuestCode(e.target.value)}
                         placeholder="e.g. og-xxxxxx or paste link"
-                        className="w-full rounded-xl border border-[#262c3b] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-mono transition-colors"
+                        className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#4c6a92] focus:outline-none font-mono transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        Your Name
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1">
+                        Your Display Name
                       </label>
                       <input
                         type="text"
@@ -729,23 +815,23 @@ export function DashboardLayout() {
                         value={guestName}
                         onChange={(e) => setGuestName(e.target.value)}
                         placeholder="e.g. Jordan Lee"
-                        className="w-full rounded-xl border border-[#262c3b] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none transition-colors"
+                        className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#4c6a92] focus:outline-none transition-colors"
                       />
                     </div>
 
-                    <div className="rounded-xl border border-[#212634] bg-[#0a0c10] p-3 space-y-1 text-xs text-slate-400">
-                      <div className="flex items-center gap-1.5 text-slate-300 font-semibold text-[11px]">
-                        <ShieldCheck className="h-3.5 w-3.5 text-cyan-400" />
-                        <span>Green Room Experience</span>
+                    <div className="rounded-lg border border-[#1a1e26] bg-[#0a0b0e] p-3 space-y-1 text-xs text-[#8c94a4]">
+                      <div className="flex items-center gap-1.5 text-[#d1d5db] font-semibold text-[11px]">
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#4c6a92]" />
+                        <span>Green Room Pre-Flight</span>
                       </div>
                       <p className="text-[11px] leading-relaxed">
-                        Test your camera, microphone, and lighting before joining the live studio broadcast.
+                        Test your microphone, camera preview, and headphones before crossing into the live studio.
                       </p>
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-3 text-xs font-bold shadow-lg shadow-cyan-950/40 active:scale-[0.98] transition-all cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#4c6a92] hover:bg-[#5a7ca9] text-white px-4 py-2.5 text-xs font-bold transition-all cursor-pointer active:scale-[0.98]"
                     >
                       <span>Join Studio Room</span>
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -754,20 +840,20 @@ export function DashboardLayout() {
                 </div>
               </div>
 
-              {/* Recent Interviews Snapshot on Dashboard */}
+              {/* Recent Studios Snapshot */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Radio className="h-4 w-4 text-purple-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                      Recent Interviews & Quick Status
+                    <Radio className="h-4 w-4 text-[#c0915a]" />
+                    <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-[#9ca3af]">
+                      Recent Studio Sessions
                     </h3>
                   </div>
                   {interviews.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setActiveTab("interviews")}
-                      className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-semibold text-[#c0915a] hover:text-[#cf9f67] flex items-center gap-1 cursor-pointer"
                     >
                       <span>View all ({interviews.length})</span>
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -776,10 +862,10 @@ export function DashboardLayout() {
                 </div>
 
                 {interviews.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#232736] bg-[#12141c]/50 p-8 text-center text-xs text-slate-400 space-y-2">
-                    <p className="font-semibold text-slate-200">No interviews created yet</p>
-                    <p className="text-[11px] text-slate-400">
-                      Click &quot;New Interview&quot; above to create a private studio room and generate guest invitation links.
+                  <div className="rounded-xl border border-dashed border-[#1f242e] bg-[#111318]/50 p-8 text-center text-xs text-[#8c94a4] space-y-2">
+                    <p className="font-semibold text-white">No studios created yet</p>
+                    <p className="text-[11px] text-[#8c94a4]">
+                      Click &quot;New Studio Session&quot; above to launch a private recording room and generate guest invitation links.
                     </p>
                   </div>
                 ) : (
@@ -791,37 +877,37 @@ export function DashboardLayout() {
                       return (
                         <div
                           key={interview.id}
-                          className="rounded-2xl border border-[#202534] bg-[#141721] p-4.5 space-y-3 shadow-xl hover:border-[#2e3549] transition-all flex flex-col justify-between"
+                          className="rounded-xl border border-[#1f242e] bg-[#13161c] p-4.5 space-y-3 hover:border-[#2a313e] transition-all flex flex-col justify-between"
                         >
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="font-mono text-[10px] font-bold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">
+                              <span className="font-mono text-[10px] font-semibold text-[#cf9f67] bg-[#c0915a]/10 border border-[#c0915a]/20 px-2 py-0.5 rounded">
                                 {interview.id}
                               </span>
                               {hasRecordings ? (
                                 <button
                                   type="button"
                                   onClick={() => setActiveTab("recordings")}
-                                  className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1 cursor-pointer"
+                                  className="rounded bg-[#10b981]/15 border border-[#10b981]/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#10b981] flex items-center gap-1 cursor-pointer"
                                 >
                                   <Check className="h-2.5 w-2.5" />
                                   <span>{sessionRec.tracks.length} Stems Ready</span>
                                 </button>
                               ) : (
-                                <span className="text-[9px] uppercase font-bold text-slate-300 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-md">
+                                <span className="text-[9px] uppercase font-bold text-[#9ca3af] bg-[#1a1e26] border border-[#242a36] px-2 py-0.5 rounded">
                                   {interview.status || "Ready"}
                                 </span>
                               )}
                             </div>
 
-                            <h4 className="text-xs font-bold text-white line-clamp-1">{interview.title}</h4>
-                            <p className="text-[11px] text-slate-400">
-                              Host: <span className="text-slate-300 font-semibold">{interview.hostName}</span> • Guest:{" "}
-                              <span className="text-slate-300 font-semibold">{interview.guestName || "Guest"}</span>
+                            <h4 className="font-heading text-xs font-bold text-white line-clamp-1">{interview.title}</h4>
+                            <p className="text-[11px] text-[#8c94a4]">
+                              Host: <span className="text-[#d1d5db] font-medium">{interview.hostName}</span> • Guest:{" "}
+                              <span className="text-[#d1d5db] font-medium">{interview.guestName || "Guest"}</span>
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 pt-2 border-t border-[#1c202d]">
+                          <div className="flex items-center gap-2 pt-2 border-t border-[#1a1e26]">
                             <button
                               type="button"
                               onClick={() => {
@@ -832,18 +918,18 @@ export function DashboardLayout() {
                                 });
                                 router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
                               }}
-                              className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold py-2 text-center transition-colors cursor-pointer shadow-md shadow-purple-950/40"
+                              className="flex-1 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] text-[11px] font-bold py-2 text-center transition-colors cursor-pointer"
                             >
                               Enter Studio
                             </button>
                             <button
                               type="button"
                               onClick={() => handleCopySessionLink(interview)}
-                              className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white cursor-pointer transition-colors"
+                              className="rounded-lg border border-[#242a36] bg-[#161a22] p-2 text-[#9ca3af] hover:text-white cursor-pointer transition-colors"
                               title="Copy Guest Invite Link"
                             >
                               {copiedSessionId === interview.id ? (
-                                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                <Check className="h-3.5 w-3.5 text-[#10b981]" />
                               ) : (
                                 <Copy className="h-3.5 w-3.5" />
                               )}
@@ -859,24 +945,24 @@ export function DashboardLayout() {
           )}
 
           {/* ========================================================= */}
-          {/* TAB 2: INTERVIEWS (Dedicated Interview Management)        */}
+          {/* TAB 2: INTERVIEWS (Studio Sessions Management)            */}
           {/* ========================================================= */}
           {activeTab === "interviews" && (
             <div className="space-y-6">
               {/* Header & Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#202534] bg-[#141721] p-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[#1f242e] bg-[#13161c] p-5">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Radio className="h-4 w-4 text-purple-400" />
-                    <h3 className="text-sm font-bold text-white tracking-wide">
-                      Creator Interview Sessions
+                    <Radio className="h-4 w-4 text-[#c0915a]" />
+                    <h3 className="font-heading text-sm font-bold text-white tracking-wide">
+                      Creator Studio Sessions
                     </h3>
-                    <span className="rounded-full bg-[#1e2330] px-2 py-0.5 text-[10px] font-mono font-medium text-purple-300">
+                    <span className="rounded bg-[#1a1e26] px-2 py-0.5 text-[10px] font-mono font-medium text-[#cf9f67]">
                       {interviews.length} Total
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Create, manage, and reopen 1-on-1 remote recording sessions with secure guest invitation links.
+                  <p className="text-xs text-[#8c94a4]">
+                    Manage and open studio sessions with separate audio/video stems and secure guest invite links.
                   </p>
                 </div>
 
@@ -887,16 +973,16 @@ export function DashboardLayout() {
                       setCreatedInviteUrl(null);
                       setShowCreateModal(true);
                     }}
-                    className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-bold shadow-md shadow-purple-950/40 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-3.5 py-2 text-xs font-bold transition-all cursor-pointer"
                   >
-                    <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
-                    <span>Create Interview</span>
+                    <Plus className="h-3.5 w-3.5 stroke-[2.6]" />
+                    <span>Create Studio</span>
                   </button>
                   <button
                     type="button"
                     onClick={loadData}
-                    title="Refresh interviews"
-                    className="rounded-xl border border-[#282d3d] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Refresh sessions"
+                    className="rounded-lg border border-[#242a36] bg-[#161a22] p-2 text-[#9ca3af] hover:text-white transition-colors cursor-pointer"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${isLoadingData ? "animate-spin" : ""}`} />
                   </button>
@@ -906,50 +992,50 @@ export function DashboardLayout() {
               {/* Status Filters & Search Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Status Filter Buttons */}
-                <div className="flex items-center gap-1.5 p-1 rounded-xl border border-[#202534] bg-[#12141c]">
+                <div className="flex items-center gap-1 p-1 rounded-lg border border-[#1f242e] bg-[#111318]">
                   {(["all", "scheduled", "active", "completed"] as StatusFilter[]).map((tab) => (
                     <button
                       key={tab}
                       type="button"
                       onClick={() => setStatusFilter(tab)}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded capitalize transition-all cursor-pointer ${
                         statusFilter === tab
-                          ? "bg-purple-600 text-white shadow-sm"
-                          : "text-slate-400 hover:text-slate-200"
+                          ? "bg-[#c0915a] text-[#0a0b0e] font-bold"
+                          : "text-[#8c94a4] hover:text-[#d1d5db]"
                       }`}
                     >
-                      {tab === "all" ? "All Interviews" : tab}
+                      {tab === "all" ? "All Studios" : tab}
                     </button>
                   ))}
                 </div>
 
                 {/* Search */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6b7280]" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search interviews..."
-                    className="rounded-xl border border-[#232736] bg-[#12141c] pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors w-full sm:w-64"
+                    placeholder="Search studios..."
+                    className="rounded-lg border border-[#242a36] bg-[#111318] pl-8 pr-3 py-1.5 text-xs text-[#e5e7eb] placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none transition-colors w-full sm:w-64"
                   />
                 </div>
               </div>
 
               {/* Empty State */}
               {filteredInterviews.length === 0 && !isLoadingData && (
-                <div className="rounded-2xl border border-dashed border-[#232736] bg-[#12141c]/50 p-12 text-center text-xs text-slate-400 space-y-3">
-                  <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    <Calendar className="h-6 w-6 stroke-[1.8]" />
+                <div className="rounded-xl border border-dashed border-[#1f242e] bg-[#111318]/50 p-12 text-center text-xs text-[#8c94a4] space-y-3">
+                  <div className="flex h-11 w-11 mx-auto items-center justify-center rounded-xl bg-[#c0915a]/10 text-[#c0915a] border border-[#c0915a]/20">
+                    <Calendar className="h-5 w-5 stroke-[1.8]" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-200 text-sm">
+                    <p className="font-heading font-semibold text-white text-sm">
                       {searchQuery || statusFilter !== "all"
-                        ? "No interviews match your filter"
-                        : "No interviews created yet"}
+                        ? "No studios match your filter"
+                        : "No studio sessions yet"}
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                      Click &quot;Create Interview&quot; above to schedule an interview with unique guest invite links and separate track recording.
+                    <p className="text-[11px] text-[#8c94a4] mt-1 max-w-sm mx-auto">
+                      Click &quot;Create Studio&quot; to set up your recording session with isolated multi-track recording.
                     </p>
                   </div>
                   <button
@@ -958,15 +1044,15 @@ export function DashboardLayout() {
                       setCreatedInviteUrl(null);
                       setShowCreateModal(true);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] transition-all cursor-pointer"
                   >
-                    <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
-                    <span>Create Interview</span>
+                    <Plus className="h-3.5 w-3.5 stroke-[2.6]" />
+                    <span>Create Studio</span>
                   </button>
                 </div>
               )}
 
-              {/* Interview Cards Grid */}
+              {/* Studio Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredInterviews.map((interview) => {
                   const sessionRec = recordingsByRoom[interview.id];
@@ -975,45 +1061,42 @@ export function DashboardLayout() {
                   return (
                     <div
                       key={interview.id}
-                      className="rounded-2xl border border-[#202534] bg-[#141721] overflow-hidden hover:border-[#2e3549] transition-all flex flex-col justify-between shadow-xl group"
+                      className="rounded-xl border border-[#1f242e] bg-[#13161c] overflow-hidden hover:border-[#2a313e] transition-all flex flex-col justify-between group"
                     >
                       {/* Video Thumbnail Header */}
-                      <div className="relative h-28 w-full bg-gradient-to-tr from-[#161925] via-[#1a1d2d] to-[#0f1118] border-b border-[#1c202d] flex items-center justify-between p-3.5 overflow-hidden">
-                        <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-600/10 rounded-full blur-xl pointer-events-none" />
-
+                      <div className="relative h-24 w-full bg-[#161a22] border-b border-[#1a1e26] flex items-center justify-between p-3 overflow-hidden">
                         {/* Top room badge & status */}
                         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
-                          <span className="font-mono text-[9px] font-bold text-purple-300 bg-black/60 border border-purple-500/30 px-2 py-0.5 rounded-md backdrop-blur-sm">
+                          <span className="font-mono text-[9px] font-semibold text-[#cf9f67] bg-[#0a0b0e]/80 border border-[#c0915a]/30 px-2 py-0.5 rounded backdrop-blur-sm">
                             {interview.id}
                           </span>
                           {hasRecordings ? (
                             <button
                               type="button"
                               onClick={() => setActiveTab("recordings")}
-                              className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1 backdrop-blur-sm hover:bg-emerald-500/30 transition-colors cursor-pointer"
-                              title="Click to view recorded tracks in library"
+                              className="rounded bg-[#10b981]/20 border border-[#10b981]/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#10b981] flex items-center gap-1 backdrop-blur-sm cursor-pointer"
                             >
                               <Check className="h-2.5 w-2.5" />
-                              <span>{sessionRec.tracks.length} Stems Ready</span>
+                              <span>{sessionRec.tracks.length} Stems</span>
                             </button>
                           ) : (
-                            <span className="text-[9px] uppercase font-bold text-slate-300 bg-black/60 border border-slate-700 px-2 py-0.5 rounded-md backdrop-blur-sm">
+                            <span className="text-[9px] uppercase font-bold text-[#9ca3af] bg-[#0a0b0e]/80 border border-[#242a36] px-2 py-0.5 rounded backdrop-blur-sm">
                               {interview.status || "Ready"}
                             </span>
                           )}
                         </div>
 
-                        {/* Visual dual avatars for 1 Host + 1 Guest */}
+                        {/* Dual avatars for 1 Host + 1 Guest */}
                         <div className="flex items-center gap-2 mt-4">
                           <div
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#c0915a] text-[#0a0b0e] font-bold text-xs ring-2 ring-[#13161c]"
                             title={`Host: ${interview.hostName}`}
                           >
                             {interview.hostName[0]?.toUpperCase() || "H"}
                           </div>
-                          <span className="text-slate-500 text-xs font-bold">+</span>
+                          <span className="text-[#6b7280] text-xs font-bold">+</span>
                           <div
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4c6a92] text-white font-bold text-xs ring-2 ring-[#13161c]"
                             title={`Guest: ${interview.guestName || "Guest"}`}
                           >
                             {(interview.guestName || "G")[0]?.toUpperCase() || "G"}
@@ -1024,17 +1107,17 @@ export function DashboardLayout() {
                       {/* Content */}
                       <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                         <div>
-                          <h4 className="text-xs font-bold text-white line-clamp-1 group-hover:text-purple-300 transition-colors">
+                          <h4 className="font-heading text-xs font-bold text-white line-clamp-1 group-hover:text-[#cf9f67] transition-colors">
                             {interview.title}
                           </h4>
-                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
-                            Host: <strong className="text-slate-300">{interview.hostName}</strong> • Guest:{" "}
-                            <strong className="text-slate-300">{interview.guestName || "Any Guest"}</strong>
+                          <p className="text-[11px] text-[#8c94a4] mt-1 line-clamp-1">
+                            Host: <strong className="text-[#d1d5db] font-medium">{interview.hostName}</strong> • Guest:{" "}
+                            <strong className="text-[#d1d5db] font-medium">{interview.guestName || "Any Guest"}</strong>
                           </p>
                         </div>
 
                         {/* Actions */}
-                        <div className="pt-2 border-t border-[#1c202d] flex items-center gap-2">
+                        <div className="pt-2 border-t border-[#1a1e26] flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
@@ -1045,7 +1128,7 @@ export function DashboardLayout() {
                               });
                               router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
                             }}
-                            className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold py-2 text-center transition-colors cursor-pointer shadow-md shadow-purple-950/40"
+                            className="flex-1 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] text-[11px] font-bold py-2 text-center transition-colors cursor-pointer"
                           >
                             Enter Studio
                           </button>
@@ -1054,7 +1137,7 @@ export function DashboardLayout() {
                             <button
                               type="button"
                               onClick={() => setActiveTab("recordings")}
-                              className="rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-2 text-emerald-300 hover:text-emerald-200 cursor-pointer transition-colors"
+                              className="rounded-lg border border-[#10b981]/30 bg-[#10b981]/10 p-2 text-[#10b981] hover:bg-[#10b981]/20 cursor-pointer transition-colors"
                               title="View recordings in library"
                             >
                               <FileVideo className="h-3.5 w-3.5" />
@@ -1064,11 +1147,11 @@ export function DashboardLayout() {
                           <button
                             type="button"
                             onClick={() => handleCopySessionLink(interview)}
-                            className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white cursor-pointer transition-colors"
-                            title="Copy Private Guest Invite Link"
+                            className="rounded-lg border border-[#242a36] bg-[#161a22] p-2 text-[#9ca3af] hover:text-white cursor-pointer transition-colors"
+                            title="Copy Guest Invite Link"
                           >
                             {copiedSessionId === interview.id ? (
-                              <Check className="h-3.5 w-3.5 text-emerald-400" />
+                              <Check className="h-3.5 w-3.5 text-[#10b981]" />
                             ) : (
                               <Copy className="h-3.5 w-3.5" />
                             )}
@@ -1077,8 +1160,8 @@ export function DashboardLayout() {
                           <button
                             type="button"
                             onClick={() => handleDeleteInterview(interview.id)}
-                            className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
-                            title="Delete Interview"
+                            className="rounded-lg border border-[#242a36] bg-[#161a22] p-2 text-[#8c94a4] hover:text-rose-400 cursor-pointer transition-colors"
+                            title="Delete Studio"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -1101,20 +1184,182 @@ export function DashboardLayout() {
           )}
 
           {/* ========================================================= */}
-          {/* TAB 4: SETTINGS & HARDWARE DIAGNOSTICS                    */}
+          {/* TAB 4: STUDIO EDITOR & AI MAGIC CLIPS                     */}
+          {/* ========================================================= */}
+          {activeTab === "editor" && (
+            <div className="space-y-6">
+              {/* Header Card */}
+              <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#c0915a]/15 text-[#c0915a] border border-[#c0915a]/30 shrink-0">
+                      <Sparkles className="h-5 w-5 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-heading text-base font-bold text-white">
+                        Text-Based Studio Editor & AI Magic Clips
+                      </h3>
+                      <p className="text-xs text-[#8c94a4]">
+                        Edit recordings like a doc, trim video by deleting text, format burned-in captions, and generate viral 9:16 vertical shorts.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-[#c0915a]/15 border border-[#c0915a]/30 px-2.5 py-1 text-xs font-mono font-bold text-[#cf9f67]">
+                      {Object.keys(recordingsByRoom).length} Editable Session{Object.keys(recordingsByRoom).length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sessions to edit */}
+              {Object.keys(recordingsByRoom).length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.values(recordingsByRoom).map((session) => {
+                    const interview = interviews.find((i) => i.id === session.roomId);
+                    const title = interview?.title || `Studio Session ${session.roomId}`;
+                    return (
+                      <div
+                        key={session.roomId}
+                        className="rounded-xl border border-[#1f242e] bg-[#13161c] p-5 flex flex-col justify-between gap-4 hover:border-[#c0915a]/40 transition-all shadow-sm"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="font-mono text-[10px] text-[#cf9f67] bg-[#c0915a]/10 px-2 py-0.5 rounded border border-[#c0915a]/20">
+                              {session.roomId}
+                            </span>
+                            <span className="text-[11px] text-[#8c94a4]">
+                              {new Date(session.recordedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-bold text-white mb-1">{title}</h4>
+                          <p className="text-xs text-[#8c94a4]">
+                            {session.tracks?.length || 0} tracks • {Math.round((session.durationSeconds || 0) / 60)}m {((session.durationSeconds || 0) % 60)}s duration
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-3 border-t border-[#1a1e26]">
+                          <Link
+                            href={`/editor/${encodeURIComponent(session.roomId)}`}
+                            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] py-2 px-3 text-xs font-bold transition-colors shadow-sm"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span>Launch Studio Editor</span>
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-12 text-center space-y-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#c0915a]/10 text-[#c0915a] border border-[#c0915a]/20 mx-auto">
+                    <FileVideo className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white mb-1">No recorded episodes yet</h4>
+                    <p className="text-xs text-[#8c94a4] max-w-md mx-auto">
+                      Record a studio episode with your guest to unlock text-based trimming, synchronized subtitle exports, and AI Magic Clips.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("dashboard")}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-4 py-2 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Launch Studio to Record</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 5: RTMP LIVE STREAMING HUB                            */}
+          {/* ========================================================= */}
+          {activeTab === "streaming" && (
+            <div className="space-y-6 max-w-4xl">
+              <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-4">
+                <div className="flex items-center gap-3 border-b border-[#1a1e26] pb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                    <Radio className="h-5 w-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base font-bold text-white">
+                      RTMP Multi-Destination Live Streaming Hub
+                    </h3>
+                    <p className="text-xs text-[#8c94a4]">
+                      Broadcast high-fidelity studio feeds across YouTube Live, Twitch, Facebook Live, and custom RTMP endpoints while preserving isolated local stems.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-4 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <Tv className="h-4 w-4 text-[#ef4444]" />
+                      <span>YouTube Live</span>
+                    </div>
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
+                      Primary broadcast endpoint: rtmp://a.rtmp.youtube.com/live2 at 1080p60.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-4 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <Radio className="h-4 w-4 text-[#a855f7]" />
+                      <span>Twitch</span>
+                    </div>
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
+                      High-fps ingest: rtmp://live.twitch.tv/app/ with ultra-low latency chat sync.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-4 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <Radio className="h-4 w-4 text-[#38bdf8]" />
+                      <span>Facebook Live</span>
+                    </div>
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
+                      Secure RTMPS stream: rtmps://live-api-s.facebook.com:443/rtmp/
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#1a1e26] flex items-center justify-between">
+                  <span className="text-xs text-[#8c94a4]">
+                    Simulcast keys can be customized directly during any studio session via the in-studio toolbar.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("dashboard")}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-4 py-2 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Radio className="h-3.5 w-3.5" />
+                    <span>Launch Studio with Live Streaming</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 6: SETTINGS & HARDWARE DIAGNOSTICS                    */}
           {/* ========================================================= */}
           {activeTab === "settings" && (
             <div className="space-y-6 max-w-3xl">
               {/* Hardware Diagnostics Card */}
-              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4 shadow-xl">
-                <div className="flex items-center gap-3 border-b border-[#1f2433] pb-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    <Sliders className="h-5 w-5" />
+              <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-4">
+                <div className="flex items-center gap-3 border-b border-[#1a1e26] pb-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c0915a]/10 text-[#c0915a] border border-[#c0915a]/20">
+                    <Sliders className="h-4.5 w-4.5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Audio & Video Hardware Diagnostics</h3>
-                    <p className="text-xs text-slate-400">
-                      Verify your local camera feed, microphone VU level, audio devices, and selfie video enhancer
+                    <h3 className="font-heading text-sm font-bold text-white">Audio & Video Hardware Diagnostics</h3>
+                    <p className="text-xs text-[#8c94a4]">
+                      Verify your local camera feed, microphone input meter, audio devices, and studio camera enhancer
                     </p>
                   </div>
                 </div>
@@ -1123,56 +1368,56 @@ export function DashboardLayout() {
               </div>
 
               {/* Studio Recording Architecture Card */}
-              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4 shadow-xl">
-                <div className="flex items-center gap-3 border-b border-[#1f2433] pb-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <Layers className="h-5 w-5" />
+              <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-4">
+                <div className="flex items-center gap-3 border-b border-[#1a1e26] pb-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20">
+                    <Layers className="h-4.5 w-4.5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Multi-Track Recording Architecture</h3>
-                    <p className="text-xs text-slate-400">
-                      Isolated 4-stem separate recording pipeline
+                    <h3 className="font-heading text-sm font-bold text-white">Multi-Track Recording Architecture</h3>
+                    <p className="text-xs text-[#8c94a4]">
+                      Isolated separate recording pipeline (Host & Guest isolated stems)
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
-                    <div className="flex items-center gap-2 font-bold text-white">
-                      <span className="h-2 w-2 rounded-full bg-purple-500" />
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-semibold text-white">
+                      <span className="h-2 w-2 rounded-full bg-[#c0915a]" />
                       <span>Host Video Stem</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
                       Captured directly from local camera stream at pristine resolution (1080p WebM/VP9).
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
-                    <div className="flex items-center gap-2 font-bold text-white">
-                      <span className="h-2 w-2 rounded-full bg-purple-400" />
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-semibold text-white">
+                      <span className="h-2 w-2 rounded-full bg-[#cf9f67]" />
                       <span>Host Audio Stem</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
                       Clean isolated microphone capture. Zero cross-talk or background bleed from the guest.
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
-                    <div className="flex items-center gap-2 font-bold text-white">
-                      <span className="h-2 w-2 rounded-full bg-cyan-500" />
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-semibold text-white">
+                      <span className="h-2 w-2 rounded-full bg-[#4c6a92]" />
                       <span>Guest Video Stem</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
                       Captured losslessly from remote guest track publication without downscaling.
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
-                    <div className="flex items-center gap-2 font-bold text-white">
-                      <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-semibold text-white">
+                      <span className="h-2 w-2 rounded-full bg-[#5a7ca9]" />
                       <span>Guest Audio Stem</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
                       Dedicated guest voice track (48kHz Opus) ready for Adobe Premiere or DaVinci Resolve.
                     </p>
                   </div>
@@ -1180,40 +1425,40 @@ export function DashboardLayout() {
               </div>
 
               {/* Storage & Deployment Configuration */}
-              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4 shadow-xl">
-                <div className="flex items-center gap-3 border-b border-[#1f2433] pb-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                    <HardDrive className="h-5 w-5" />
+              <div className="rounded-xl border border-[#1f242e] bg-[#13161c] p-6 space-y-4">
+                <div className="flex items-center gap-3 border-b border-[#1a1e26] pb-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4c6a92]/10 text-[#4c6a92] border border-[#4c6a92]/20">
+                    <HardDrive className="h-4.5 w-4.5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Persistent Recording Storage</h3>
-                    <p className="text-xs text-slate-400">
-                      Render & Cloud deployment disk configuration
+                    <h3 className="font-heading text-sm font-bold text-white">Persistent Recording Storage</h3>
+                    <p className="text-xs text-[#8c94a4]">
+                      Disk path & production deployment configuration
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-3 text-xs text-slate-300">
-                  <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-3.5 space-y-1 text-amber-200">
-                    <div className="flex items-center gap-1.5 font-bold text-xs">
-                      <AlertCircle className="h-4 w-4 text-amber-400" />
-                      <span>Notice for Render.com / Ephemeral Cloud Deployments</span>
+                <div className="space-y-3 text-xs text-[#d1d5db]">
+                  <div className="rounded-lg border border-[#2a2217] bg-[#18140f] p-3.5 space-y-1 text-[#f3d9b8]">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-[#c0915a]">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Storage Notice for Cloud Deployments</span>
                     </div>
-                    <p className="text-[11px] leading-relaxed text-amber-300/90">
-                      Render&apos;s free web services use ephemeral disks that reset upon every redeploy. By default, OneGuest Studio stores recordings in <code className="font-mono text-purple-300">data/recordings</code>. For persistent production, attach a Persistent Disk on Render (e.g. at <code className="font-mono text-purple-300">/var/data/recordings</code>) and set the environment variable:
+                    <p className="text-[11px] leading-relaxed text-[#d9c4aa]">
+                      By default, OneGuest Studio stores recordings in <code className="font-mono text-[#cf9f67]">data/recordings</code>. For persistent production on cloud containers, attach a persistent volume and configure:
                     </p>
-                    <div className="rounded-lg bg-black/60 p-2 font-mono text-[11px] text-emerald-300 mt-1.5">
+                    <div className="rounded bg-[#0a0b0e] p-2 font-mono text-[11px] text-[#10b981] mt-1.5">
                       RECORDINGS_STORAGE_PATH=/var/data/recordings
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-white">
-                      <Lock className="h-4 w-4 text-purple-400" />
+                  <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-white">
+                      <Lock className="h-4 w-4 text-[#c0915a]" />
                       <span>Guest Privacy & Security</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Guest links do not expose sensitive LiveKit API keys. Secure short-lived WebRTC tokens are minted on-demand server-side using your protected <code className="font-mono text-slate-300">LIVEKIT_API_SECRET</code>. Guests never need to register an account or provide payment credentials.
+                    <p className="text-[11px] text-[#8c94a4] leading-relaxed">
+                      Guest links do not expose sensitive LiveKit API keys. Secure short-lived WebRTC tokens are minted on-demand server-side using your protected <code className="font-mono text-[#d1d5db]">LIVEKIT_API_SECRET</code>. Guests never need an account.
                     </p>
                   </div>
                 </div>
@@ -1223,42 +1468,42 @@ export function DashboardLayout() {
         </main>
       </div>
 
-      {/* CREATE INTERVIEW MODAL */}
+      {/* CREATE STUDIO MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <form
             onSubmit={handleModalCreate}
-            className="w-full max-w-lg rounded-2xl border border-[#282d3d] bg-[#12151f] p-6 shadow-2xl space-y-4"
+            className="w-full max-w-lg rounded-xl border border-[#242a36] bg-[#13161c] p-6 shadow-2xl space-y-4"
           >
-            <div className="flex items-center justify-between border-b border-[#232736] pb-3">
+            <div className="flex items-center justify-between border-b border-[#1a1e26] pb-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-400" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-                  Create Creator Interview
+                <Radio className="h-4 w-4 text-[#c0915a]" />
+                <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white">
+                  Create Studio Session
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-[#8c94a4] hover:text-white cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="rounded-xl border border-rose-900/60 bg-rose-950/40 p-3 text-xs text-rose-300 font-medium">
+              <div className="rounded-lg border border-rose-900/60 bg-rose-950/40 p-3 text-xs text-rose-300 font-medium">
                 {modalError}
               </div>
             )}
 
             {createdInviteUrl ? (
-              <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/20 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+              <div className="rounded-lg border border-[#10b981]/30 bg-[#10b981]/10 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-[#10b981] text-xs font-bold">
                   <Check className="h-4 w-4" />
-                  <span>Interview Session Created!</span>
+                  <span>Studio Session Created!</span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[#d1d5db] leading-relaxed">
                   Share this private guest link. The guest can join directly without creating an account:
                 </p>
                 <div className="flex items-center gap-2">
@@ -1266,7 +1511,7 @@ export function DashboardLayout() {
                     type="text"
                     readOnly
                     value={createdInviteUrl}
-                    className="flex-1 rounded-xl border border-emerald-800 bg-[#0a0c10] px-3 py-2 text-xs text-emerald-300 font-mono"
+                    className="flex-1 rounded-lg border border-[#10b981]/40 bg-[#0a0b0e] px-3 py-2 text-xs text-[#10b981] font-mono"
                   />
                   <button
                     type="button"
@@ -1276,7 +1521,7 @@ export function DashboardLayout() {
                       setCopiedModalLink(true);
                       setTimeout(() => setCopiedModalLink(false), 2500);
                     }}
-                    className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white cursor-pointer transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg bg-[#10b981] hover:bg-[#059669] px-3.5 py-2 text-xs font-bold text-[#0a0b0e] cursor-pointer transition-colors"
                   >
                     {copiedModalLink ? (
                       <>
@@ -1297,7 +1542,7 @@ export function DashboardLayout() {
                     setCreatedInviteUrl(null);
                     setShowCreateModal(false);
                   }}
-                  className="w-full mt-2 rounded-xl bg-slate-800 hover:bg-slate-700 py-2.5 text-xs text-slate-200 font-semibold cursor-pointer transition-colors"
+                  className="w-full mt-2 rounded-lg bg-[#1a1e26] hover:bg-[#242a36] py-2 text-xs text-[#d1d5db] font-semibold cursor-pointer transition-colors"
                 >
                   Done
                 </button>
@@ -1305,8 +1550,8 @@ export function DashboardLayout() {
             ) : (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Interview Title *
+                  <label className="block text-xs font-semibold text-[#d1d5db] mb-1">
+                    Studio Title *
                   </label>
                   <input
                     type="text"
@@ -1314,13 +1559,13 @@ export function DashboardLayout() {
                     value={modalTitle}
                     onChange={(e) => setModalTitle(e.target.value)}
                     placeholder="e.g. Episode 12: Building with AI"
-                    className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors"
+                    className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none transition-colors"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-[#d1d5db] mb-1">
                       Host Name
                     </label>
                     <input
@@ -1328,12 +1573,12 @@ export function DashboardLayout() {
                       value={hostName}
                       onChange={(e) => setHostName(e.target.value)}
                       placeholder="e.g. Creator Host"
-                      className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-[#d1d5db] mb-1">
                       Guest Name
                     </label>
                     <input
@@ -1341,21 +1586,21 @@ export function DashboardLayout() {
                       value={modalGuestName}
                       onChange={(e) => setModalGuestName(e.target.value)}
                       placeholder="e.g. Sarah Jenkins"
-                      className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Optional Room Passcode
+                  <label className="block text-xs font-semibold text-[#d1d5db] mb-1">
+                    Optional Passcode
                   </label>
                   <input
                     type="text"
                     value={modalPasscode}
                     onChange={(e) => setModalPasscode(e.target.value)}
                     placeholder="Leave blank for automatic secure room"
-                    className="w-full rounded-xl border border-[#282d3d] bg-[#0c0e14] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none font-mono"
+                    className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none font-mono"
                   />
                 </div>
 
@@ -1363,17 +1608,16 @@ export function DashboardLayout() {
                   <button
                     type="button"
                     onClick={() => setShowCreateModal(false)}
-                    className="rounded-xl border border-[#282d3d] px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 cursor-pointer"
+                    className="rounded-lg border border-[#242a36] px-4 py-2 text-xs text-[#9ca3af] hover:bg-[#1a1e26] cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCreatingSession || !modalTitle.trim()}
-                    className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] disabled:opacity-50 cursor-pointer transition-colors"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>{isCreatingSession ? "Creating..." : "Create Interview"}</span>
+                    <span>{isCreatingSession ? "Creating..." : "Create Studio"}</span>
                   </button>
                 </div>
               </>

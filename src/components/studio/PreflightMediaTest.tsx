@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Camera,
   VideoOff,
   Mic,
   MicOff,
-  ShieldCheck,
   AlertTriangle,
   RefreshCw,
   Sparkles,
@@ -40,7 +39,6 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
     setIsLoading(true);
     setErrorText(null);
 
-    // Stop existing stream if any
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -89,7 +87,6 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
       if (videoTrack?.label) setCameraLabel(videoTrack.label);
       if (audioTrack?.label) setMicLabel(audioTrack.label);
 
-      // Setup Web Audio Analyser for live VU meter
       try {
         const audioCtx = new (window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -152,7 +149,6 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
     };
   }, []);
 
-  // Reactively attach or detach enhancer when toggled
   useEffect(() => {
     if (!streamRef.current || !videoRef.current) return;
     if (enhancer.isEnabled && enhancer.processor) {
@@ -191,14 +187,14 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div className="w-full rounded-2xl border border-[#232736] bg-[#12141c] p-4 sm:p-5 shadow-2xl backdrop-blur-xl">
+    <div className="w-full rounded-xl border border-[#1f242e] bg-[#13161c] p-4 sm:p-5 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#1f232e] pb-3 mb-4">
+      <div className="flex items-center justify-between border-b border-[#1a1e26] pb-3 mb-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/30">
-            <Camera className="h-4 w-4" />
+          <div className="flex h-7 w-7 items-center justify-center rounded bg-[#c0915a]/15 text-[#c0915a] border border-[#c0915a]/30">
+            <Camera className="h-3.5 w-3.5" />
           </div>
-          <span className="text-xs sm:text-sm font-semibold text-white">
+          <span className="font-heading text-xs sm:text-sm font-bold text-white">
             Camera & Microphone Diagnostics
           </span>
         </div>
@@ -206,7 +202,7 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="text-xs text-[#8c94a4] hover:text-white transition-colors cursor-pointer"
           >
             Close
           </button>
@@ -214,27 +210,27 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
       </div>
 
       {/* Video Viewport */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#090b10] border border-[#232736] flex items-center justify-center">
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-[#0a0b0e] border border-[#1f242e] flex items-center justify-center">
         {isLoading && (
-          <div className="flex flex-col items-center gap-2 text-slate-400">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+          <div className="flex flex-col items-center gap-2 text-[#8c94a4]">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#c0915a] border-t-transparent" />
             <span className="text-xs font-mono">Testing hardware stream...</span>
           </div>
         )}
 
         {!isLoading && hasPermission === false && (
           <div className="flex flex-col items-center p-6 text-center max-w-sm">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/30 mb-3">
-              <AlertTriangle className="h-6 w-6 stroke-[2]" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-3">
+              <AlertTriangle className="h-5 w-5" />
             </div>
-            <h4 className="text-sm font-bold text-white mb-1">Camera Permission Blocked</h4>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+            <h4 className="font-heading text-sm font-bold text-white mb-1">Camera Permission Blocked</h4>
+            <p className="text-xs text-[#8c94a4] mb-4 leading-relaxed">
               {errorText || "Your browser has blocked camera/mic access for this site."}
             </p>
             <button
               type="button"
               onClick={startMedia}
-              className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-3.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-3.5 py-1.5 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               <span>Retry Permissions</span>
@@ -253,29 +249,29 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
         />
 
         {!isLoading && hasPermission && !isCameraActive && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0d0f16] text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#181c26] text-slate-400 mb-2 border border-[#232736]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0b0e] text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#14171d] text-[#6b7280] mb-2 border border-[#1f242e]">
               <VideoOff className="h-6 w-6" />
             </div>
-            <span className="text-xs text-slate-400">Camera preview paused</span>
+            <span className="text-xs text-[#8c94a4]">Camera preview paused</span>
           </div>
         )}
 
         {hasPermission && (
-          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-md bg-[#0c0e14]/80 px-2 py-0.5 text-[10px] font-mono font-medium text-emerald-400 border border-emerald-500/30 backdrop-blur-md">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>LOCAL PREVIEW</span>
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded bg-[#0a0b0e]/90 px-2 py-0.5 text-[10px] font-mono font-medium text-[#10b981] border border-[#10b981]/30 backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#10b981] animate-pulse" />
+            <span>PREVIEW</span>
           </div>
         )}
 
-        {/* Selfie Enhancer Active Badge */}
+        {/* Enhancer Active Badge */}
         {enhancer.isEnabled && isCameraActive && hasPermission && !isLoading && (
-          <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 rounded-full bg-purple-950/85 px-2.5 py-0.5 text-[10px] font-semibold text-purple-200 border border-purple-500/40 backdrop-blur-md shadow-lg">
-            <Sparkles className="h-3 w-3 text-purple-400 animate-pulse" />
-            <span>Beauty & Light: {enhancer.strength}%</span>
+          <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 rounded bg-[#0a0b0e]/90 px-2 py-0.5 text-[10px] font-semibold text-[#cf9f67] border border-[#c0915a]/30 backdrop-blur-sm">
+            <Sparkles className="h-3 w-3 text-[#c0915a]" />
+            <span>Enhancer {enhancer.strength}%</span>
             {enhancer.compareMode && (
-              <span className="ml-1 text-[9px] text-cyan-300 border-l border-purple-500/40 pl-1 font-bold">
-                Split
+              <span className="ml-1 text-[9px] text-[#82a4d4] border-l border-[#c0915a]/30 pl-1 font-bold">
+                Compare
               </span>
             )}
           </div>
@@ -284,22 +280,22 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
 
       {/* Mic Audio Level Meter */}
       {hasPermission && (
-        <div className="mt-3.5 rounded-xl border border-[#232736] bg-[#0d0f16] p-3 space-y-2">
+        <div className="mt-3.5 rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <Mic className="h-3.5 w-3.5 text-purple-400" />
-              <span className="font-semibold text-[11px] uppercase tracking-wider text-slate-400">
-                Live Microphone Input
+            <div className="flex items-center gap-1.5 text-[#d1d5db]">
+              <Mic className="h-3.5 w-3.5 text-[#c0915a]" />
+              <span className="font-semibold text-[11px] uppercase tracking-wider text-[#8c94a4]">
+                Microphone Input
               </span>
             </div>
-            <span className="font-mono text-[11px] font-semibold text-purple-300">
+            <span className="font-mono text-[11px] font-semibold text-[#cf9f67]">
               {isMicActive ? (audioLevel > 5 ? "Audio Signal Detected" : "Listening...") : "Muted"}
             </span>
           </div>
 
-          <div className="h-2 w-full overflow-hidden rounded-full bg-[#181c26] border border-[#232736]">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1a1e26]">
             <div
-              className="h-full transition-all duration-75 rounded-full bg-gradient-to-r from-purple-500 via-indigo-400 to-emerald-400"
+              className="h-full transition-all duration-75 rounded-full bg-[#c0915a]"
               style={{ width: isMicActive ? `${Math.max(4, audioLevel)}%` : "0%" }}
             />
           </div>
@@ -308,12 +304,12 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
 
       {/* Hardware Status & Controls */}
       <div className="mt-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-        <div className="flex flex-col text-[11px] text-slate-400 text-left w-full sm:w-auto truncate">
+        <div className="flex flex-col text-[11px] text-[#8c94a4] text-left w-full sm:w-auto truncate">
           <span className="truncate">
-            Camera: <strong className="text-slate-200">{cameraLabel}</strong>
+            Camera: <strong className="text-[#d1d5db]">{cameraLabel}</strong>
           </span>
           <span className="truncate">
-            Mic: <strong className="text-slate-200">{micLabel}</strong>
+            Mic: <strong className="text-[#d1d5db]">{micLabel}</strong>
           </span>
         </div>
 
@@ -322,9 +318,9 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={toggleCamera}
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                 isCameraActive
-                  ? "bg-[#181c26] text-slate-200 hover:bg-[#202534] border border-[#282d3d]"
+                  ? "bg-[#161a22] text-[#d1d5db] hover:bg-[#202534] border border-[#242a36]"
                   : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
               }`}
             >
@@ -335,9 +331,9 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={toggleMic}
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                 isMicActive
-                  ? "bg-[#181c26] text-slate-200 hover:bg-[#202534] border border-[#282d3d]"
+                  ? "bg-[#161a22] text-[#d1d5db] hover:bg-[#202534] border border-[#242a36]"
                   : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
               }`}
             >
@@ -348,26 +344,26 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={enhancer.toggleEnabled}
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                 enhancer.isEnabled
-                  ? "bg-purple-600 text-white shadow-md shadow-purple-900/50"
-                  : "bg-[#181c26] text-slate-200 hover:bg-[#202534] border border-[#282d3d]"
+                  ? "bg-[#c0915a] text-[#0a0b0e]"
+                  : "bg-[#161a22] text-[#d1d5db] hover:bg-[#202534] border border-[#242a36]"
               }`}
-              title="Toggle Real-Time Beauty & Lighting Filter"
+              title="Toggle Camera Enhancer"
             >
-              <Sparkles className="h-3.5 w-3.5 text-purple-200" />
+              <Sparkles className="h-3.5 w-3.5" />
               <span>{enhancer.isEnabled ? "Enhancer On" : "Enhancer"}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowEnhancerSettings(!showEnhancerSettings)}
-              className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer border ${
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer border ${
                 showEnhancerSettings
-                  ? "bg-[#252a3a] border-purple-500/50 text-purple-300"
-                  : "bg-[#181c26] border-[#282d3d] text-slate-400 hover:text-white"
+                  ? "bg-[#c0915a]/20 border-[#c0915a] text-[#cf9f67]"
+                  : "bg-[#161a22] border-[#242a36] text-[#8c94a4] hover:text-white"
               }`}
-              title="Enhancer Settings & Sliders"
+              title="Enhancer Settings"
             >
               <Sliders className="h-3.5 w-3.5" />
             </button>
@@ -375,9 +371,9 @@ export function PreflightMediaTest({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* Expandable Selfie Enhancer Tuning Console */}
+      {/* Expandable Enhancer Console */}
       {hasPermission && showEnhancerSettings && (
-        <div className="mt-4 border-t border-[#232736] pt-4">
+        <div className="mt-4 border-t border-[#1a1e26] pt-4">
           <SelfieEnhancerControl
             config={enhancer.config}
             onToggleEnabled={enhancer.toggleEnabled}

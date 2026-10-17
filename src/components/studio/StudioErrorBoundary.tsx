@@ -51,42 +51,42 @@ export class StudioErrorBoundary extends Component<Props, State> {
         errorMsg.toLowerCase().includes("region");
 
       return (
-        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0d0f15] p-4 text-center">
-          <div className="w-full max-w-lg rounded-3xl border border-[#232736] bg-[#141721] p-6 sm:p-8 shadow-2xl text-left">
+        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#0a0b0e] p-4 text-center select-none">
+          <div className="w-full max-w-lg rounded-xl border border-[#1f242e] bg-[#13161c] p-6 sm:p-8 shadow-2xl text-left">
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/30">
-                <ShieldAlert className="h-6 w-6 stroke-[2]" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <ShieldAlert className="h-5 w-5 stroke-[2]" />
               </div>
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-white">Connection Error</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="font-heading text-lg font-bold text-white">Connection Error</h2>
+                <p className="text-xs text-[#8c94a4]">
                   {isApiKeyIssue ? "Invalid LiveKit Credentials" : "LiveKit Media Stream Error"}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-3.5 text-xs text-rose-200 mb-5 leading-relaxed font-mono">
+            <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-3 text-xs text-rose-200 mb-5 leading-relaxed font-mono">
               {errorMsg}
             </div>
 
             {isApiKeyIssue && (
-              <div className="rounded-xl border border-purple-800/60 bg-purple-950/20 p-4 mb-5 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+              <div className="rounded-lg border border-[#3b2a1a] bg-[#1c140d] p-4 mb-5 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#cf9f67]">
                   <Terminal className="h-4 w-4" />
                   <span>How to fix: Add Real LiveKit Credentials</span>
                 </div>
-                <p className="text-[11px] text-slate-400">
-                  The current API key is a placeholder. Update your <code className="text-purple-200 bg-slate-900 px-1 py-0.5 rounded">.env.local</code> with credentials from your{" "}
+                <p className="text-[11px] text-[#d1d5db]">
+                  Update your <code className="text-[#cf9f67] bg-[#0a0b0e] px-1 py-0.5 rounded">.env.local</code> with credentials from your{" "}
                   <a
                     href="https://cloud.livekit.io"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline text-purple-300 hover:text-purple-200"
+                    className="underline text-[#c0915a] hover:text-[#cf9f67]"
                   >
                     LiveKit Cloud Dashboard
                   </a>:
                 </p>
-                <pre className="rounded-lg bg-slate-950 p-2.5 text-[11px] font-mono text-purple-200/90 overflow-x-auto">
+                <pre className="rounded bg-[#0a0b0e] p-2.5 text-[11px] font-mono text-[#d1d5db] overflow-x-auto">
 {`LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=APIxxxxxxxxx
 LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
@@ -98,7 +98,7 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
               <button
                 type="button"
                 onClick={this.handleRetry}
-                className="w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-3 text-xs font-bold text-white transition-all active:scale-[0.98] cursor-pointer"
+                className="w-full sm:flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2.5 text-xs font-bold text-[#0a0b0e] transition-all cursor-pointer"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span>Retry Connection</span>
@@ -106,7 +106,7 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
 
               <Link
                 href="/"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl border border-[#2b3144] bg-[#1a1e2b] px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-[#23283a] hover:text-white transition-colors cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg border border-[#242a36] bg-[#161a22] px-4 py-2.5 text-xs font-semibold text-[#d1d5db] hover:bg-[#202534] hover:text-white transition-colors cursor-pointer"
               >
                 <Home className="h-3.5 w-3.5" />
                 <span>Return to Home</span>

@@ -12,7 +12,6 @@ import {
   Check,
   LayoutGrid,
   Columns2,
-  Disc,
   Square,
   UploadCloud,
   Maximize2,
@@ -23,6 +22,7 @@ import {
   Sparkles,
   Camera,
   Headphones,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
@@ -42,6 +42,8 @@ interface MediaControlsProps {
   role?: "host" | "guest";
   onStartRecording?: () => void;
   onStopRecording?: () => void;
+  isStreamingLive?: boolean;
+  onOpenLiveStream?: () => void;
 }
 
 export function MediaControls({
@@ -55,6 +57,8 @@ export function MediaControls({
   role = "host",
   onStartRecording,
   onStopRecording,
+  isStreamingLive = false,
+  onOpenLiveStream,
 }: MediaControlsProps) {
   const room = useRoomContext();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
@@ -99,7 +103,6 @@ export function MediaControls({
       setAudioInputDevices(aInputs);
       setAudioOutputDevices(aOutputs);
 
-      // Active devices from LiveKit room if available
       try {
         const activeCam = room.getActiveDevice("videoinput");
         if (activeCam) setSelectedCameraId(activeCam);
@@ -233,45 +236,45 @@ export function MediaControls({
     <>
       <div
         className={cn(
-          "flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-[#232736] bg-[#11131c]/95 p-3 sm:px-6 sm:py-3 shadow-2xl backdrop-blur-2xl select-none",
+          "flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-[#1f242e] bg-[#0f1115]/95 p-2.5 sm:px-5 sm:py-2.5 shadow-2xl backdrop-blur-md select-none",
           className
         )}
       >
         {/* Left Section: Connection Status & Copy Guest Invite */}
-        <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3">
+        <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2.5">
           <ConnectionStatusBadge />
 
           <button
             type="button"
             onClick={copyInviteLink}
-            className="flex items-center gap-1.5 rounded-xl border border-[#262c3d] bg-[#171a25] px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#1f2332] transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 rounded-lg border border-[#242a36] bg-[#14171d] px-3 py-1.5 text-xs font-semibold text-[#d1d5db] hover:text-white hover:bg-[#1a1e26] transition-colors cursor-pointer"
             title="Copy Guest Invite Link"
           >
             {copied ? (
               <>
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-emerald-300">Invite Copied!</span>
+                <Check className="h-3.5 w-3.5 text-[#10b981]" />
+                <span className="text-[#10b981]">Invite Copied</span>
               </>
             ) : (
               <>
-                <Share2 className="h-3.5 w-3.5 text-slate-400" />
+                <Share2 className="h-3.5 w-3.5 text-[#8c94a4]" />
                 <span>Invite Guest</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Center Section: Primary Recording Toolbar (Minimal, Uncluttered) */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* Center Section: Primary Recording Toolbar */}
+        <div className="flex items-center gap-2">
           {/* Microphone Toggle */}
           <button
             type="button"
             onClick={toggleMic}
             disabled={isTogglingMic}
             className={cn(
-              "flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border transition-all active:scale-[0.96] cursor-pointer",
+              "flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border transition-all active:scale-[0.96] cursor-pointer",
               isMicrophoneEnabled
-                ? "border-[#2b3144] bg-[#1a1e2b] text-slate-200 hover:bg-[#23283a] hover:text-white shadow-md"
+                ? "border-[#242a36] bg-[#14171d] text-[#d1d5db] hover:bg-[#1c202a] hover:text-white"
                 : "border-rose-900/80 bg-rose-950/70 text-rose-300 ring-1 ring-rose-500/30 hover:bg-rose-900/80"
             )}
             title={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"}
@@ -290,9 +293,9 @@ export function MediaControls({
             onClick={toggleCam}
             disabled={isTogglingCam}
             className={cn(
-              "flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border transition-all active:scale-[0.96] cursor-pointer",
+              "flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border transition-all active:scale-[0.96] cursor-pointer",
               isCameraEnabled
-                ? "border-[#2b3144] bg-[#1a1e2b] text-slate-200 hover:bg-[#23283a] hover:text-white shadow-md"
+                ? "border-[#242a36] bg-[#14171d] text-[#d1d5db] hover:bg-[#1c202a] hover:text-white"
                 : "border-rose-900/80 bg-rose-950/70 text-rose-300 ring-1 ring-rose-500/30 hover:bg-rose-900/80"
             )}
             title={isCameraEnabled ? "Turn Camera Off" : "Turn Camera On"}
@@ -305,36 +308,25 @@ export function MediaControls({
             )}
           </button>
 
-          {/* Selfie Enhancer (Beauty Smoothing & Lighting) */}
+          {/* Camera Enhancer */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowEnhancerPopover(!showEnhancerPopover)}
               className={cn(
-                "flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border transition-all active:scale-[0.96] cursor-pointer relative",
+                "flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border transition-all active:scale-[0.96] cursor-pointer relative",
                 enhancer.isEnabled
-                  ? "border-purple-500/80 bg-purple-600/30 text-purple-200 ring-2 ring-purple-500/40 shadow-lg shadow-purple-950/50"
-                  : "border-[#2b3144] bg-[#1a1e2b] text-slate-300 hover:bg-[#23283a] hover:text-white"
+                  ? "border-[#c0915a] bg-[#c0915a]/20 text-[#cf9f67] shadow-sm"
+                  : "border-[#242a36] bg-[#14171d] text-[#8c94a4] hover:bg-[#1c202a] hover:text-white"
               )}
               title={
                 enhancer.isEnabled
-                  ? `Selfie Enhancer Active (${enhancer.strength}%) • Click to adjust`
-                  : "Selfie Enhancer (Lighting & Smoothing)"
+                  ? `Camera Enhancer Active (${enhancer.strength}%) • Click to adjust`
+                  : "Camera Enhancer"
               }
-              aria-label="Selfie Enhancer"
+              aria-label="Camera Enhancer"
             >
-              <Sparkles
-                className={cn(
-                  "h-4.5 w-4.5 transition-colors",
-                  enhancer.isEnabled ? "text-purple-300 animate-pulse" : "text-slate-300"
-                )}
-              />
-              {enhancer.isEnabled && (
-                <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                </span>
-              )}
+              <Sparkles className="h-4.5 w-4.5" />
             </button>
 
             {showEnhancerPopover && (
@@ -353,13 +345,13 @@ export function MediaControls({
             )}
           </div>
 
-          {/* Layout Switcher (Split vs Focus) */}
+          {/* Layout Switcher */}
           <button
             type="button"
             onClick={() => onLayoutChange(layoutMode === "split" ? "focus" : "split")}
             className={cn(
-              "hidden md:flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-[#2b3144] bg-[#1a1e2b] text-slate-300 transition-all hover:bg-[#23283a] hover:text-white active:scale-[0.96] cursor-pointer",
-              layoutMode === "focus" && "border-purple-500/60 text-purple-300 bg-purple-950/25"
+              "hidden md:flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border border-[#242a36] bg-[#14171d] text-[#8c94a4] transition-all hover:bg-[#1c202a] hover:text-white active:scale-[0.96] cursor-pointer",
+              layoutMode === "focus" && "border-[#c0915a] text-[#cf9f67] bg-[#c0915a]/15"
             )}
             title={layoutMode === "split" ? "Switch to Focus Layout" : "Switch to Side-by-Side Split"}
             aria-label="Toggle Layout"
@@ -371,13 +363,13 @@ export function MediaControls({
             )}
           </button>
 
-          {/* Riverside Centerpiece: Prominent Record Control */}
+          {/* Riverside Record Button */}
           {role === "host" ? (
             isRecording ? (
               <button
                 type="button"
                 onClick={onStopRecording}
-                className="flex items-center gap-2 rounded-full border-2 border-rose-500 bg-rose-600 px-4 sm:px-5 py-2.5 text-xs font-bold text-white shadow-xl shadow-rose-950/60 hover:bg-rose-500 active:scale-[0.96] transition-all cursor-pointer animate-pulse"
+                className="flex items-center gap-2 rounded-lg border border-rose-500 bg-rose-600 px-4 sm:px-5 py-2.5 text-xs font-bold text-white shadow-lg hover:bg-rose-500 active:scale-[0.96] transition-all cursor-pointer animate-pulse"
                 title="Stop Multi-Track Studio Recording"
               >
                 <Square className="h-3.5 w-3.5 fill-white" />
@@ -389,41 +381,59 @@ export function MediaControls({
                 type="button"
                 onClick={onStartRecording}
                 disabled={isUploading}
-                className="flex items-center gap-2 rounded-full border-2 border-rose-500/60 bg-[#1c1216] hover:bg-rose-950/60 text-white px-4 sm:px-5 py-2.5 text-xs font-bold shadow-xl shadow-rose-950/30 hover:border-rose-400 active:scale-[0.96] disabled:opacity-50 transition-all cursor-pointer"
+                className="flex items-center gap-2 rounded-lg border border-[#ef4444]/60 bg-[#1e1113] hover:bg-[#2b1418] text-white px-4 sm:px-5 py-2.5 text-xs font-bold shadow-md hover:border-[#ef4444] active:scale-[0.96] disabled:opacity-50 transition-all cursor-pointer"
                 title="Start Isolated Multi-Track Recording for Host & Guest"
               >
-                <span className="flex h-3 w-3 rounded-full bg-rose-500 ring-2 ring-rose-500/40" />
-                <span className="text-[12px] font-extrabold uppercase tracking-wider text-rose-200">Record</span>
+                <span className="flex h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
+                <span className="text-[12px] font-bold uppercase tracking-wider text-rose-200">Record</span>
               </button>
             )
           ) : (
             /* Guest View */
             isRecording ? (
-              <div className="flex items-center gap-2 rounded-full border border-rose-500/50 bg-rose-950/60 px-4 py-2 text-xs font-bold text-rose-300 animate-pulse">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-                <span>Recording Track ({formatTimer(recordingDuration)})</span>
+              <div className="flex items-center gap-2 rounded-lg border border-rose-500/50 bg-rose-950/60 px-4 py-2 text-xs font-bold text-rose-300 animate-pulse">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                <span>Recording ({formatTimer(recordingDuration)})</span>
               </div>
             ) : isUploading ? (
-              <div className="flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-950/60 px-3.5 py-2 text-xs font-semibold text-amber-300">
+              <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-950/60 px-3.5 py-2 text-xs font-semibold text-amber-300">
                 <UploadCloud className="h-3.5 w-3.5 animate-bounce" />
                 <span>Saving Track...</span>
               </div>
             ) : (
               <div
-                className="hidden sm:flex items-center gap-1.5 rounded-full border border-[#232736] bg-[#12141c] px-3.5 py-1.5 text-xs text-slate-400"
+                className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[#1f242e] bg-[#111318] px-3.5 py-1.5 text-xs text-[#8c94a4]"
                 title="Host coordinates studio recording"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#6b7280]" />
                 <span className="text-[11px] font-medium">Host Controls REC</span>
               </div>
             )
           )}
 
-          {/* In-Studio Hardware & Device Settings */}
+          {/* RTMP Live Streaming Trigger (Host Only) */}
+          {role === "host" && onOpenLiveStream && (
+            <button
+              type="button"
+              onClick={onOpenLiveStream}
+              className={cn(
+                "hidden sm:flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer",
+                isStreamingLive
+                  ? "border-rose-500 bg-rose-950/70 text-rose-300 animate-pulse"
+                  : "border-[#242a36] bg-[#14171d] text-[#8c94a4] hover:bg-[#1c202a] hover:text-white"
+              )}
+              title="Configure Multi-Destination Live Stream (YouTube, Twitch, Facebook, Custom RTMP)"
+            >
+              <Radio className="h-3.5 w-3.5" />
+              <span>{isStreamingLive ? "Live" : "Stream"}</span>
+            </button>
+          )}
+
+          {/* Device Settings */}
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
-            className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-[#2b3144] bg-[#1a1e2b] text-slate-300 hover:bg-[#23283a] hover:text-white transition-all active:scale-[0.96] cursor-pointer"
+            className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border border-[#242a36] bg-[#14171d] text-[#8c94a4] hover:bg-[#1c202a] hover:text-white transition-all active:scale-[0.96] cursor-pointer"
             title="Studio Settings & Device Selection"
             aria-label="Studio Settings"
           >
@@ -434,7 +444,7 @@ export function MediaControls({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="hidden sm:flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-[#2b3144] bg-[#1a1e2b] text-slate-300 hover:bg-[#23283a] hover:text-white transition-all active:scale-[0.96] cursor-pointer"
+            className="hidden sm:flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border border-[#242a36] bg-[#14171d] text-[#8c94a4] hover:bg-[#1c202a] hover:text-white transition-all active:scale-[0.96] cursor-pointer"
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             aria-label="Toggle Fullscreen"
           >
@@ -449,47 +459,47 @@ export function MediaControls({
           <button
             type="button"
             onClick={handleLeave}
-            className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-rose-800/80 bg-rose-600 text-white shadow-lg shadow-rose-950/50 transition-all hover:bg-rose-500 active:scale-[0.96] cursor-pointer"
-            title="Leave Studio Session"
-            aria-label="Leave Studio Session"
+            className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-lg border border-rose-800 bg-rose-600 text-white shadow-md transition-all hover:bg-rose-500 active:scale-[0.96] cursor-pointer"
+            title="Leave Studio"
+            aria-label="Leave Studio"
           >
             <PhoneOff className="h-4.5 w-4.5" />
           </button>
         </div>
       </div>
 
-      {/* In-Studio Hardware & Device Settings Modal */}
+      {/* Device Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[#282d3d] bg-[#13151f] p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#232736] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-[#242a36] bg-[#13161c] p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#1a1e26] pb-3">
               <div className="flex items-center gap-2">
-                <Settings className="h-4 w-4 text-purple-400" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-                  Studio Hardware & Devices
+                <Settings className="h-4 w-4 text-[#c0915a]" />
+                <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-white">
+                  Studio Audio & Video Settings
                 </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-[#8c94a4] hover:text-white cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="space-y-3 text-xs">
               {/* Camera Selector */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-                  <Camera className="h-3 w-3 text-purple-400" />
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1 flex items-center gap-1.5">
+                  <Camera className="h-3 w-3 text-[#c0915a]" />
                   <span>Camera Device</span>
                 </label>
                 <select
                   value={selectedCameraId}
                   disabled={isSwitchingDevice}
                   onChange={(e) => handleSwitchCamera(e.target.value)}
-                  className="w-full rounded-xl border border-[#262c3b] bg-[#0c0d14] px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-[#d1d5db] focus:border-[#c0915a] focus:outline-none"
                 >
                   {videoDevices.map((d) => (
                     <option key={d.deviceId} value={d.deviceId}>
@@ -502,15 +512,15 @@ export function MediaControls({
 
               {/* Microphone Selector */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-                  <Mic className="h-3 w-3 text-purple-400" />
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1 flex items-center gap-1.5">
+                  <Mic className="h-3 w-3 text-[#c0915a]" />
                   <span>Microphone Device</span>
                 </label>
                 <select
                   value={selectedMicId}
                   disabled={isSwitchingDevice}
                   onChange={(e) => handleSwitchMic(e.target.value)}
-                  className="w-full rounded-xl border border-[#262c3b] bg-[#0c0d14] px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-[#d1d5db] focus:border-[#c0915a] focus:outline-none"
                 >
                   {audioInputDevices.map((d) => (
                     <option key={d.deviceId} value={d.deviceId}>
@@ -523,15 +533,15 @@ export function MediaControls({
 
               {/* Output Speaker Selector */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-                  <Volume2 className="h-3 w-3 text-purple-400" />
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1 flex items-center gap-1.5">
+                  <Volume2 className="h-3 w-3 text-[#c0915a]" />
                   <span>Audio Output / Speaker</span>
                 </label>
                 <select
                   value={selectedSpeakerId}
                   disabled={isSwitchingDevice}
                   onChange={(e) => handleSwitchSpeaker(e.target.value)}
-                  className="w-full rounded-xl border border-[#262c3b] bg-[#0c0d14] px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-[#d1d5db] focus:border-[#c0915a] focus:outline-none"
                 >
                   {audioOutputDevices.map((d) => (
                     <option key={d.deviceId} value={d.deviceId}>
@@ -542,13 +552,13 @@ export function MediaControls({
                 </select>
               </div>
 
-              {/* Acoustic & Multi-Track Recording Info */}
-              <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-slate-300 font-semibold text-[11px]">
-                  <Headphones className="h-3.5 w-3.5 text-purple-400" />
-                  <span>Isolated Hardware Capture</span>
+              {/* Multi-Track Recording Info */}
+              <div className="rounded-lg border border-[#1f242e] bg-[#0c0e12] p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[#d1d5db] font-semibold text-[11px]">
+                  <Headphones className="h-3.5 w-3.5 text-[#c0915a]" />
+                  <span>Isolated Local Capture</span>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-[#8c94a4] leading-relaxed">
                   Your audio and video are recorded directly from your local hardware device before network compression, providing pristine studio-quality stems.
                 </p>
               </div>
@@ -557,7 +567,7 @@ export function MediaControls({
             <button
               type="button"
               onClick={() => setShowSettingsModal(false)}
-              className="w-full rounded-xl bg-purple-600 hover:bg-purple-500 py-2.5 text-xs font-bold text-white cursor-pointer transition-colors"
+              className="w-full rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] py-2 text-xs font-bold text-[#0a0b0e] cursor-pointer transition-colors"
             >
               Done
             </button>

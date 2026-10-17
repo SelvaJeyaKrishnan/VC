@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Disc,
   UploadCloud,
   CheckCircle2,
   AlertTriangle,
@@ -11,7 +10,6 @@ import {
   Mic,
   Film,
   Users,
-  Clock,
   Layers,
 } from "lucide-react";
 import type { RecordingStatus, TrackItemInfo } from "@/hooks/useLocalRecorder";
@@ -41,10 +39,8 @@ export function RecordingBar({
   uploadProgress,
   errorMessage,
   warningMessage,
-  localDownloadUrl,
   recordedTracks = [],
   missingWarning,
-  role,
   onDismissError,
   onDismissWarning,
   onDismissMissingWarning,
@@ -74,18 +70,18 @@ export function RecordingBar({
 
   return (
     <div className="w-full max-w-3xl mx-auto px-3 select-none space-y-2">
-      {/* 0. Missing Tracks Warning / Pre-Flight Confirmation Modal Banner */}
+      {/* 0. Missing Tracks Warning Modal Banner */}
       {missingWarning && status === "idle" && (
-        <div className="rounded-xl border border-amber-500/60 bg-[#1a140d]/95 p-4 shadow-2xl backdrop-blur-md space-y-3">
+        <div className="rounded-xl border border-amber-500/40 bg-[#18130d] p-4 shadow-lg space-y-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
               <Users className="h-4 w-4" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-300">
+              <h4 className="font-heading text-xs font-bold uppercase tracking-wider text-amber-300">
                 Notice: Multi-Participant Recording Check
               </h4>
-              <p className="text-xs text-amber-100/90 leading-relaxed">
+              <p className="text-xs text-[#d1d5db] leading-relaxed">
                 {missingWarning.message}
               </p>
             </div>
@@ -96,7 +92,7 @@ export function RecordingBar({
               <button
                 type="button"
                 onClick={onDismissMissingWarning}
-                className="rounded-lg border border-slate-700 bg-[#161822] px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#202434] transition-colors cursor-pointer"
+                className="rounded-lg border border-[#242a36] bg-[#14171d] px-3.5 py-1.5 text-xs font-semibold text-[#d1d5db] hover:text-white transition-colors cursor-pointer"
               >
                 Wait for Guest
               </button>
@@ -106,7 +102,7 @@ export function RecordingBar({
               <button
                 type="button"
                 onClick={onConfirmSoloRecording}
-                className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition-colors cursor-pointer"
+                className="rounded-lg bg-amber-500 hover:bg-amber-400 px-3.5 py-1.5 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
               >
                 Record Host Solo Only
               </button>
@@ -117,44 +113,44 @@ export function RecordingBar({
 
       {/* 1. Active Recording Banner */}
       {status === "recording" && (
-        <div className="rounded-xl border border-rose-500/60 bg-[#160d11]/95 p-3 sm:px-4 sm:py-3 shadow-2xl backdrop-blur-md space-y-2.5">
+        <div className="rounded-xl border border-rose-500/50 bg-[#160d10] p-3 sm:px-4 sm:py-2.5 shadow-lg space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 rounded-md bg-rose-500 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm animate-pulse">
+              <div className="flex items-center gap-1.5 rounded bg-rose-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm animate-pulse">
                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
                 <span>REC</span>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-white tracking-wider">
+                <span className="font-mono text-xs font-bold text-white tracking-wider">
                   {formatTimer(duration)}
                 </span>
-                <span className="text-slate-500 text-xs">•</span>
-                <span className="text-xs font-mono text-slate-300 font-semibold">
-                  {fileSizeMb > 0 ? `${fileSizeMb} MB total` : "Capturing raw streams..."}
+                <span className="text-[#6b7280] text-xs">•</span>
+                <span className="text-xs font-mono text-[#d1d5db]">
+                  {fileSizeMb > 0 ? `${fileSizeMb} MB total` : "Capturing streams..."}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 text-[11px] text-rose-300 font-semibold font-mono">
+            <div className="flex items-center gap-1.5 text-[11px] text-rose-300 font-mono">
               <Layers className="h-3.5 w-3.5 text-rose-400" />
-              <span>Multi-Track Capture Active</span>
+              <span>Multi-Track Stems Active</span>
             </div>
           </div>
 
           {/* Individual Active Tracks Pills */}
           {recordedTracks.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-rose-950/80">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Capturing Tracks:
+              <span className="text-[10px] text-[#8c94a4] font-bold uppercase tracking-wider">
+                Capturing:
               </span>
               {recordedTracks.map((tr) => (
                 <div
                   key={tr.id}
-                  className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold border ${
+                  className={`flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border ${
                     tr.role === "host"
-                      ? "bg-purple-950/60 text-purple-300 border-purple-500/40"
-                      : "bg-cyan-950/60 text-cyan-300 border-cyan-500/40"
+                      ? "bg-[#c0915a]/15 text-[#cf9f67] border-[#c0915a]/30"
+                      : "bg-[#4c6a92]/15 text-[#82a4d4] border-[#4c6a92]/30"
                   }`}
                 >
                   {getTrackIcon(tr.trackType)}
@@ -168,58 +164,57 @@ export function RecordingBar({
 
       {/* 2. Finalizing Status Banner */}
       {status === "finalizing" && (
-        <div className="flex items-center justify-between rounded-xl border border-purple-500/50 bg-[#121422]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
-          <div className="flex items-center gap-2 text-xs text-purple-300 font-semibold">
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
+        <div className="flex items-center justify-between rounded-xl border border-[#c0915a]/40 bg-[#13161c] px-4 py-2.5 shadow-md">
+          <div className="flex items-center gap-2 text-xs text-[#cf9f67] font-semibold">
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#c0915a] border-t-transparent" />
             <span>Finalizing separate host & guest media tracks...</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-400">Encoding VP9/Opus</span>
+          <span className="text-[11px] font-mono text-[#8c94a4]">Encoding Stems</span>
         </div>
       )}
 
       {/* 3. Uploading Progress Banner */}
       {status === "uploading" && (
-        <div className="rounded-xl border border-purple-500/40 bg-[#141624]/90 px-4 py-3 shadow-2xl backdrop-blur-md space-y-2">
+        <div className="rounded-xl border border-[#c0915a]/30 bg-[#13161c] px-4 py-3 shadow-md space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-purple-300 font-semibold">
-              <UploadCloud className="h-4 w-4 animate-bounce text-purple-400" />
-              <span>Syncing separate host and guest tracks to studio library...</span>
+            <div className="flex items-center gap-2 text-[#cf9f67] font-semibold">
+              <UploadCloud className="h-4 w-4 animate-bounce text-[#c0915a]" />
+              <span>Syncing separate tracks to studio library...</span>
             </div>
-            <span className="font-mono text-xs text-purple-400 font-bold">{uploadProgress}%</span>
+            <span className="font-mono text-xs text-[#c0915a] font-bold">{uploadProgress}%</span>
           </div>
 
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1a1e26]">
             <div
-              className="h-full bg-gradient-to-r from-purple-500 to-indigo-400 transition-all duration-300"
+              className="h-full bg-[#c0915a] transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
         </div>
       )}
 
-      {/* 4. Upload Completed Banner with Direct Download Links for All Tracks */}
+      {/* 4. Upload Completed Banner */}
       {status === "uploaded" && (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 p-4 shadow-2xl backdrop-blur-md space-y-3">
+        <div className="rounded-xl border border-[#10b981]/30 bg-[#0e1f18] p-4 shadow-md space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-emerald-300 font-bold">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              <span>Master Host & Guest recordings saved to studio library!</span>
+            <div className="flex items-center gap-2 text-xs text-[#10b981] font-bold">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Host & Guest recordings saved to studio library!</span>
             </div>
-            <span className="font-mono text-[10px] text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
-              Ready for Download
+            <span className="font-mono text-[10px] text-[#10b981] bg-[#10b981]/15 px-2 py-0.5 rounded border border-[#10b981]/30">
+              Ready
             </span>
           </div>
 
-          {/* Download buttons for each individual deliverable */}
           {recordedTracks.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-emerald-900/60">
+            <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-[#134e35]">
               {recordedTracks.map((tr) => (
                 tr.downloadUrl ? (
                   <a
                     key={tr.id}
                     href={tr.downloadUrl}
                     download={tr.fileName}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-800/80 hover:bg-emerald-700 px-2.5 py-1 text-xs font-bold text-white transition-colors cursor-pointer border border-emerald-500/40"
+                    className="flex items-center gap-1.5 rounded bg-[#10b981] hover:bg-[#059669] px-2.5 py-1 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
                     title={`Download ${tr.label}`}
                   >
                     <Download className="h-3 w-3" />
@@ -251,9 +246,9 @@ export function RecordingBar({
         </div>
       )}
 
-      {/* 6. Error Banner with Emergency Local Download Links */}
+      {/* 6. Error Banner */}
       {errorMessage && (
-        <div className="rounded-xl border border-rose-500/50 bg-rose-950/80 p-3.5 shadow-2xl text-xs space-y-2.5">
+        <div className="rounded-xl border border-rose-500/50 bg-rose-950/80 p-3.5 shadow-lg text-xs space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-rose-200 font-semibold">
               <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
@@ -262,13 +257,12 @@ export function RecordingBar({
             <button
               type="button"
               onClick={onDismissError}
-              className="rounded-lg p-1 text-rose-300 hover:text-white cursor-pointer"
+              className="rounded p-1 text-rose-300 hover:text-white cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          {/* Emergency local downloads if server upload failed */}
           {recordedTracks.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-rose-900/60">
               <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">
@@ -280,7 +274,7 @@ export function RecordingBar({
                     key={tr.id}
                     href={tr.downloadUrl}
                     download={tr.fileName}
-                    className="flex items-center gap-1 rounded-md bg-amber-500 hover:bg-amber-400 px-2.5 py-1 text-xs font-bold text-slate-950 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 rounded bg-amber-500 hover:bg-amber-400 px-2.5 py-1 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
                   >
                     <Download className="h-3 w-3" />
                     <span>{tr.label}</span>

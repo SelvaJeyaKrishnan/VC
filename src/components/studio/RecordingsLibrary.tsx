@@ -18,6 +18,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Video,
+  User,
+  Users,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import type { RecordingSession, RecordingTrack } from "@/lib/recordingStore";
 import type { Interview } from "@/types/studio";
@@ -31,6 +35,8 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
   const [interviewsMap, setInterviewsMap] = useState<Record<string, Interview>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDownloadingAll, setIsDownloadingAll] = useState<string | null>(null);
+
   const [previewTrack, setPreviewTrack] = useState<{
     track: RecordingTrack;
     roomId: string;
@@ -82,6 +88,27 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const handleDownloadAll = async (session: RecordingSession) => {
+    setIsDownloadingAll(session.roomId);
+    try {
+      for (let i = 0; i < session.tracks.length; i++) {
+        const track = session.tracks[i];
+        const a = document.createElement("a");
+        a.href = track.downloadUrl;
+        a.download = track.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Small delay to prevent browser download popup blocking
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    } catch (err) {
+      console.error("Batch download error:", err);
+    } finally {
+      setTimeout(() => setIsDownloadingAll(null), 1000);
+    }
+  };
+
   const filteredSessions = sessions.filter((s) => {
     const interviewTitle = interviewsMap[s.roomId]?.title || "";
     return (
@@ -101,11 +128,14 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
           <div className="flex items-center gap-2">
             <FileVideo className="h-4 w-4 text-purple-400" />
             <h3 className="text-sm font-bold text-white tracking-wide">
-              Studio Recordings Library
+              Studio Recordings & Separate Tracks
             </h3>
+            <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-purple-300">
+              Riverside Stems
+            </span>
           </div>
           <p className="text-xs text-slate-400">
-            Uncompressed, local multi-track recordings captured directly on host and guest hardware.
+            Download pristine, isolated host and guest audio & video tracks for your post-production editing workflow.
           </p>
         </div>
 
@@ -129,7 +159,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by session title, room ID, or participant..."
+            placeholder="Search recordings by title, room ID, or participant..."
             className="w-full rounded-xl border border-[#232736] bg-[#12141c] pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors"
           />
         </div>
@@ -146,7 +176,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
               {searchQuery ? "No matching recordings found" : "No recordings captured yet"}
             </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
-              When you record in OneGuest Studio, each participant&apos;s audio and video track will sync here for instant preview and separate track downloads.
+              When you record in OneGuest Studio, each participant&apos;s audio and video track will automatically appear here for instant preview and isolated separate track downloads.
             </p>
           </div>
           {onStartSession && (
@@ -163,21 +193,30 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
       )}
 
       {/* Recording Sessions List */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {filteredSessions.map((session) => {
           const interview = interviewsMap[session.roomId];
           const sessionTitle = interview?.title || `Studio Session ${session.roomId}`;
+          const hostName = interview?.hostName || "Creator Host";
+          const guestName = interview?.guestName || "Guest Participant";
+
+          // Group tracks by participant role & composite
+          const hostTracks = session.tracks.filter((t) => t.role === "host");
+          const guestTracks = session.tracks.filter((t) => t.role === "guest");
+          const compositeTracks = session.tracks.filter((t) => t.trackType === "composite");
+
+          const totalBytes = session.tracks.reduce((acc, t) => acc + (t.fileSize || 0), 0);
 
           return (
             <div
               key={session.roomId}
-              className="rounded-2xl border border-[#202534] bg-[#141721] overflow-hidden transition-all hover:border-[#2e3549] shadow-lg"
+              className="rounded-2xl border border-[#202534] bg-[#13151f] overflow-hidden transition-all hover:border-[#2e3549] shadow-2xl"
             >
-              {/* Header Info */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1f232e] px-5 py-4 bg-[#11131a]">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                    <FileVideo className="h-5 w-5" />
+              {/* Riverside Session Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f232e] px-6 py-4 bg-[#0e1017]">
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30 shrink-0">
+                    <FileVideo className="h-5 w-5 stroke-[2.2]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -189,13 +228,13 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                       </span>
                       <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
                         <CheckCircle2 className="h-2.5 w-2.5" />
-                        <span>Synchronized</span>
+                        <span>Synchronized Stems</span>
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1 flex-wrap">
                       <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
+                        <Calendar className="h-3 w-3 text-slate-500" />
                         <span>
                           {new Date(session.recordedAt).toLocaleDateString()} at{" "}
                           {new Date(session.recordedAt).toLocaleTimeString([], {
@@ -206,114 +245,252 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="h-3 w-3 text-slate-500" />
                         <span>{formatDuration(session.durationSeconds)}</span>
                       </span>
                       <span>•</span>
                       <span>
-                        {session.tracks.length} Separate Track
-                        {session.tracks.length > 1 ? "s" : ""}
+                        {session.tracks.length} Separate Track{session.tracks.length > 1 ? "s" : ""} ({formatFileSize(totalBytes)})
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono self-start sm:self-auto">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  <span className="text-[11px]">Lossless Hardware Capture</span>
+                {/* Master Riverside Action: Download All Tracks */}
+                <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                  <button
+                    type="button"
+                    disabled={isDownloadingAll === session.roomId}
+                    onClick={() => handleDownloadAll(session)}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>
+                      {isDownloadingAll === session.roomId
+                        ? "Downloading Tracks..."
+                        : "Download All Separate Tracks"}
+                    </span>
+                  </button>
                 </div>
               </div>
 
-              {/* Tracks Grid */}
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {session.tracks.map((track) => {
-                  const isAudio =
-                    track.trackType === "audio" || track.mimeType.startsWith("audio");
-                  const isComposite = track.trackType === "composite";
-
-                  let trackLabel = track.fileName;
-                  if (track.fileName.includes("host-video")) trackLabel = "Host Video Track";
-                  else if (track.fileName.includes("host-audio")) trackLabel = "Host Microphone Audio";
-                  else if (track.fileName.includes("guest-video")) trackLabel = "Guest Video Track";
-                  else if (track.fileName.includes("guest-audio")) trackLabel = "Guest Microphone Audio";
-                  else if (track.fileName.includes("composite")) trackLabel = "Side-by-Side Interview Composite";
-
-                  return (
-                    <div
-                      key={track.fileName}
-                      className="flex items-center justify-between rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 hover:border-[#2f3549] transition-colors"
-                    >
-                      <div className="space-y-1 min-w-0 pr-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 ${
-                              isComposite
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                : track.role === "host"
-                                ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                                : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                            }`}
-                          >
-                            {isAudio ? <Volume2 className="h-2.5 w-2.5" /> : <Video className="h-2.5 w-2.5" />}
-                            <span>{track.role}</span>
-                          </span>
-
-                          <span className="text-xs font-bold text-slate-200 truncate">
-                            {trackLabel}
-                          </span>
-
-                          {track.offsetMs !== undefined && track.offsetMs > 0 && (
-                            <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-mono text-slate-400">
-                              +{(track.offsetMs / 1000).toFixed(1)}s
-                            </span>
-                          )}
+              {/* Riverside Participant Cards Grid */}
+              <div className="p-5 space-y-4">
+                {/* 1. Host Tracks Card */}
+                {hostTracks.length > 0 && (
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#1c1f2b] pb-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-white text-xs font-bold ring-1 ring-purple-400/40">
+                          {hostName[0]?.toUpperCase() || "H"}
                         </div>
-
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                          <span className="font-semibold text-slate-300">{formatFileSize(track.fileSize)}</span>
-                          <span>•</span>
-                          <span>
-                            {track.mimeType.includes("mp4")
-                              ? isAudio
-                                ? "MP4 (AAC Audio)"
-                                : "MP4 (H.264 Video)"
-                              : isAudio
-                              ? "WEBM (48kHz Opus Audio)"
-                              : "WEBM (VP9 Video)"}
-                          </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">{hostName}</span>
+                            <span className="rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider">
+                              Host
+                            </span>
+                          </div>
                         </div>
                       </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {hostTracks.length} Isolated Stem{hostTracks.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPreviewTrack({
-                              track,
-                              roomId: session.roomId,
-                              sessionTitle,
-                            })
-                          }
-                          className="flex items-center gap-1.5 rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
-                          title="Preview in browser"
-                        >
-                          <Play className="h-3 w-3 fill-slate-300" />
-                          <span>Preview</span>
-                        </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {hostTracks.map((track) => {
+                        const isAudio = track.trackType === "audio" || track.mimeType.startsWith("audio");
+                        const stemName = isAudio ? "Host Audio (Microphone Stem)" : "Host Video (1080p Camera Stem)";
+                        const formatLabel = isAudio ? "WAV / 48kHz Opus" : "MP4 / WebM HD";
 
-                        <a
-                          href={track.downloadUrl}
-                          download={track.fileName}
-                          className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer"
-                          title="Download master track"
-                        >
-                          <Download className="h-3 w-3" />
-                          <span>Download</span>
-                        </a>
+                        return (
+                          <div
+                            key={track.fileName}
+                            className="flex items-center justify-between rounded-lg border border-[#1f232e] bg-[#12141c] p-3 hover:border-purple-500/40 transition-colors"
+                          >
+                            <div className="space-y-1 min-w-0 pr-3">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1 rounded-md bg-purple-500/10 text-purple-400">
+                                  {isAudio ? <Volume2 className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+                                </div>
+                                <span className="text-xs font-bold text-slate-200 truncate">
+                                  {stemName}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono pl-6">
+                                <span className="text-slate-300 font-semibold">{formatFileSize(track.fileSize)}</span>
+                                <span>•</span>
+                                <span>{formatLabel}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewTrack({
+                                    track,
+                                    roomId: session.roomId,
+                                    sessionTitle,
+                                  })
+                                }
+                                className="rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                title="Preview track"
+                              >
+                                <Play className="h-3 w-3 fill-slate-300" />
+                              </button>
+                              <a
+                                href={track.downloadUrl}
+                                download={track.fileName}
+                                className="flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                                title={`Download ${stemName}`}
+                              >
+                                <Download className="h-3 w-3" />
+                                <span>Download</span>
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Guest Tracks Card */}
+                {guestTracks.length > 0 && (
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#1c1f2b] pb-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white text-xs font-bold ring-1 ring-cyan-400/40">
+                          {guestName[0]?.toUpperCase() || "G"}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">{guestName}</span>
+                            <span className="rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider">
+                              Guest
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {guestTracks.length} Isolated Stem{guestTracks.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {guestTracks.map((track) => {
+                        const isAudio = track.trackType === "audio" || track.mimeType.startsWith("audio");
+                        const stemName = isAudio ? "Guest Audio (Microphone Stem)" : "Guest Video (1080p Camera Stem)";
+                        const formatLabel = isAudio ? "WAV / 48kHz Opus" : "MP4 / WebM HD";
+
+                        return (
+                          <div
+                            key={track.fileName}
+                            className="flex items-center justify-between rounded-lg border border-[#1f232e] bg-[#12141c] p-3 hover:border-cyan-500/40 transition-colors"
+                          >
+                            <div className="space-y-1 min-w-0 pr-3">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1 rounded-md bg-cyan-500/10 text-cyan-400">
+                                  {isAudio ? <Volume2 className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+                                </div>
+                                <span className="text-xs font-bold text-slate-200 truncate">
+                                  {stemName}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono pl-6">
+                                <span className="text-slate-300 font-semibold">{formatFileSize(track.fileSize)}</span>
+                                <span>•</span>
+                                <span>{formatLabel}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewTrack({
+                                    track,
+                                    roomId: session.roomId,
+                                    sessionTitle,
+                                  })
+                                }
+                                className="rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                                title="Preview track"
+                              >
+                                <Play className="h-3 w-3 fill-slate-300" />
+                              </button>
+                              <a
+                                href={track.downloadUrl}
+                                download={track.fileName}
+                                className="flex items-center gap-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                                title={`Download ${stemName}`}
+                              >
+                                <Download className="h-3 w-3" />
+                                <span>Download</span>
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Composite Backup Card (if present) */}
+                {compositeTracks.length > 0 && (
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-4 space-y-2">
+                    <div className="flex items-center justify-between border-b border-[#1c1f2b] pb-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-amber-400" />
+                        <span className="text-xs font-bold text-white">Side-by-Side Composite Interview Video</span>
+                        <span className="rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider">
+                          Composite Backup
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {compositeTracks.map((track) => (
+                      <div
+                        key={track.fileName}
+                        className="flex items-center justify-between rounded-lg border border-[#1f232e] bg-[#12141c] p-3"
+                      >
+                        <div className="space-y-0.5 text-xs">
+                          <span className="font-semibold text-slate-200">Synchronized Host & Guest Split View</span>
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            {formatFileSize(track.fileSize)} • MP4/WebM Broadcast
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewTrack({
+                                track,
+                                roomId: session.roomId,
+                                sessionTitle,
+                              })
+                            }
+                            className="rounded-lg border border-[#2b3144] bg-[#161924] hover:bg-[#1e2333] p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            title="Preview track"
+                          >
+                            <Play className="h-3 w-3 fill-slate-300" />
+                          </button>
+                          <a
+                            href={track.downloadUrl}
+                            download={track.fileName}
+                            className="flex items-center gap-1 rounded-lg bg-amber-600 hover:bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white transition-colors cursor-pointer"
+                          >
+                            <Download className="h-3 w-3" />
+                            <span>Download Composite</span>
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );

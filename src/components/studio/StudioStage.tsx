@@ -9,10 +9,11 @@ import {
   type TrackReferenceOrPlaceholder,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { Radio, Users, Copy, Check, Disc, Video, Share2, AlertTriangle, WifiOff, CheckCircle2 } from "lucide-react";
+import { Radio, Users, Copy, Check, Disc, Video, Share2, AlertTriangle, WifiOff, CheckCircle2, FileText } from "lucide-react";
 import { ParticipantTile } from "./ParticipantTile";
 import { MediaControls } from "./MediaControls";
 import { RecordingBar } from "./RecordingBar";
+import { Teleprompter } from "./Teleprompter";
 import { useLocalRecorder } from "@/hooks/useLocalRecorder";
 import type { StudioLayoutMode } from "@/types/studio";
 
@@ -32,6 +33,7 @@ export function StudioStage({
   const [layoutMode, setLayoutMode] = useState<StudioLayoutMode>("split");
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showTeleprompter, setShowTeleprompter] = useState(false);
 
   // Guest disconnect & reconnect tracking
   const [guestDisconnected, setGuestDisconnected] = useState(false);
@@ -180,8 +182,23 @@ export function StudioStage({
           )}
         </div>
 
-        {/* Right: Participant Count & Copy Invite Action */}
-        <div className="flex items-center gap-2.5">
+        {/* Right: Teleprompter, Participant Count & Copy Invite Action */}
+        <div className="flex items-center gap-2">
+          {/* Riverside In-Studio Teleprompter Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowTeleprompter((prev) => !prev)}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+              showTeleprompter
+                ? "border-purple-500/80 bg-purple-600/25 text-purple-200 ring-1 ring-purple-500/30"
+                : "border-[#262c3d] bg-[#161924] text-slate-300 hover:text-white hover:bg-[#1e2333]"
+            }`}
+            title="Toggle Riverside-style Script Teleprompter & Notes"
+          >
+            <FileText className="h-3.5 w-3.5 text-purple-400" />
+            <span className="hidden sm:inline text-xs">Script Prompter</span>
+          </button>
+
           <div className="flex items-center gap-1.5 rounded-lg border border-[#202534] bg-[#12141c] px-2.5 py-1 text-xs text-slate-300">
             <Users className="h-3.5 w-3.5 text-slate-400" />
             <span className="font-mono font-medium">{participantCount}/2</span>
@@ -207,6 +224,13 @@ export function StudioStage({
           </button>
         </div>
       </header>
+
+      {/* Floating In-Studio Teleprompter Overlay */}
+      <Teleprompter
+        roomId={roomId}
+        isOpen={showTeleprompter}
+        onClose={() => setShowTeleprompter(false)}
+      />
 
       {/* Guest Disconnect / Reconnect Banner */}
       {guestDisconnected && (

@@ -744,76 +744,97 @@ export function DashboardLayout() {
                     return (
                       <div
                         key={interview.id}
-                        className="rounded-xl border border-[#202534] bg-[#141721] p-4 space-y-3 hover:border-[#2e3549] transition-all flex flex-col justify-between"
+                        className="rounded-2xl border border-[#202534] bg-[#141721] overflow-hidden hover:border-[#2e3549] transition-all flex flex-col justify-between shadow-xl group"
                       >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">
+                        {/* Video Thumbnail Header (Riverside style) */}
+                        <div className="relative h-28 w-full bg-gradient-to-tr from-[#161925] via-[#1a1d2d] to-[#0f1118] border-b border-[#1c202d] flex items-center justify-between p-3.5 overflow-hidden">
+                          {/* Ambient background glow */}
+                          <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-600/10 rounded-full blur-xl pointer-events-none" />
+
+                          {/* Top room badge & status */}
+                          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                            <span className="font-mono text-[9px] font-bold text-purple-300 bg-black/60 border border-purple-500/30 px-2 py-0.5 rounded-md backdrop-blur-sm">
                               {interview.id}
                             </span>
                             {hasRecordings ? (
                               <button
                                 type="button"
                                 onClick={() => setActiveTab("recordings")}
-                                className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1 hover:bg-emerald-500/20 cursor-pointer"
+                                className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1 backdrop-blur-sm hover:bg-emerald-500/30 transition-colors cursor-pointer"
                                 title="Click to view recorded tracks in library"
                               >
                                 <Check className="h-2.5 w-2.5" />
-                                <span>{sessionRec.tracks.length} Tracks Recorded</span>
+                                <span>{sessionRec.tracks.length} Stems Ready</span>
                               </button>
                             ) : (
-                              <span className="text-[9px] uppercase font-bold text-slate-400 bg-[#1e2330] border border-[#2a3042] px-2 py-0.5 rounded-md">
+                              <span className="text-[9px] uppercase font-bold text-slate-300 bg-black/60 border border-slate-700 px-2 py-0.5 rounded-md backdrop-blur-sm">
                                 {interview.status || "Ready"}
                               </span>
                             )}
                           </div>
 
+                          {/* Visual dual avatars for 1 Host + 1 Guest */}
+                          <div className="flex items-center gap-2 mt-4">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]" title={`Host: ${interview.hostName}`}>
+                              {interview.hostName[0]?.toUpperCase() || "H"}
+                            </div>
+                            <span className="text-slate-500 text-xs font-bold">+</span>
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]" title={`Guest: ${interview.guestName || "Guest"}`}>
+                              {(interview.guestName || "G")[0]?.toUpperCase() || "G"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
                           <div>
-                            <h4 className="text-xs font-bold text-white line-clamp-1">{interview.title}</h4>
+                            <h4 className="text-xs font-bold text-white line-clamp-1 group-hover:text-purple-300 transition-colors">
+                              {interview.title}
+                            </h4>
                             <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
                               Host: <strong className="text-slate-300">{interview.hostName}</strong> • Guest:{" "}
                               <strong className="text-slate-300">{interview.guestName || "Any Guest"}</strong>
                             </p>
                           </div>
-                        </div>
 
-                        <div className="pt-2 border-t border-[#1c202d] flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const params = new URLSearchParams({
-                                role: "host",
-                                name: interview.hostName || "Creator Host",
-                                title: interview.title,
-                              });
-                              router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
-                            }}
-                            className="flex-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold py-1.5 text-center transition-colors cursor-pointer"
-                          >
-                            Enter Studio
-                          </button>
+                          <div className="pt-2 border-t border-[#1c202d] flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const params = new URLSearchParams({
+                                  role: "host",
+                                  name: interview.hostName || "Creator Host",
+                                  title: interview.title,
+                                });
+                                router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
+                              }}
+                              className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold py-2 text-center transition-colors cursor-pointer shadow-md shadow-purple-950/40"
+                            >
+                              Enter Studio
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleCopySessionLink(interview)}
-                            className="rounded-lg border border-[#2b3144] bg-[#1a1e2b] p-1.5 text-slate-300 hover:text-white cursor-pointer transition-colors"
-                            title="Copy Private Guest Invite Link"
-                          >
-                            {copiedSessionId === interview.id ? (
-                              <Check className="h-3.5 w-3.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5" />
-                            )}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCopySessionLink(interview)}
+                              className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white cursor-pointer transition-colors"
+                              title="Copy Private Guest Invite Link"
+                            >
+                              {copiedSessionId === interview.id ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteInterview(interview.id)}
-                            className="rounded-lg border border-[#2b3144] bg-[#1a1e2b] p-1.5 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
-                            title="Delete Interview"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteInterview(interview.id)}
+                              className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
+                              title="Delete Interview"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );

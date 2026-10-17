@@ -193,7 +193,7 @@ export function StudioStage({
                 ? "border-purple-500/80 bg-purple-600/25 text-purple-200 ring-1 ring-purple-500/30"
                 : "border-[#262c3d] bg-[#161924] text-slate-300 hover:text-white hover:bg-[#1e2333]"
             }`}
-            title="Toggle Riverside-style Script Teleprompter & Notes"
+            title="Toggle Studio Script Teleprompter & Notes"
           >
             <FileText className="h-3.5 w-3.5 text-purple-400" />
             <span className="hidden sm:inline text-xs">Script Prompter</span>

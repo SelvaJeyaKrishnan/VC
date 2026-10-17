@@ -131,7 +131,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
               Studio Recordings & Separate Tracks
             </h3>
             <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-purple-300">
-              Riverside Stems
+              Separate Stems
             </span>
           </div>
           <p className="text-xs text-slate-400">

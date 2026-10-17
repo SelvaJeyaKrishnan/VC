@@ -123,7 +123,7 @@ export function Teleprompter({ roomId, isOpen, onClose }: TeleprompterProps) {
               Interview Teleprompter & Notes
             </span>
             <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-purple-300">
-              Riverside Prompter
+              Studio Prompter
             </span>
           </div>
 

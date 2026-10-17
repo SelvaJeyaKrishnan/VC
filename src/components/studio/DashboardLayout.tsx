@@ -69,6 +69,7 @@ export function DashboardLayout() {
   const [modalPasscode, setModalPasscode] = useState("");
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+  const [copiedModalLink, setCopiedModalLink] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
   // Data cache
@@ -327,20 +328,12 @@ export function DashboardLayout() {
             </div>
           </div>
 
-          {/* 1-on-1 Studio Badge */}
-          <div className="rounded-xl border border-[#202534] bg-[#161822] px-3 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-purple-500" />
-              <span className="text-xs font-semibold text-slate-200">1 Host • 1 Guest</span>
-            </div>
-            <span className="text-[10px] font-mono text-purple-300 uppercase">Isolated REC</span>
-          </div>
-
           {/* Primary "+ New Interview" Action */}
           <button
             type="button"
             onClick={() => {
               setCreatedInviteUrl(null);
+              setCopiedModalLink(false);
               setShowCreateModal(true);
             }}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] cursor-pointer"
@@ -474,15 +467,16 @@ export function DashboardLayout() {
             </span>
           </div>
 
-          {/* Top Bar Actions */}
+          {/* Top Bar Actions (Mobile Quick Action) */}
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setCreatedInviteUrl(null);
+                setCopiedModalLink(false);
                 setShowCreateModal(true);
               }}
-              className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+              className="lg:hidden flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
               <span>New Interview</span>
@@ -553,47 +547,31 @@ export function DashboardLayout() {
           {/* ========================================================= */}
           {activeTab === "dashboard" && (
             <div className="space-y-8">
-              {/* Studio Welcome & Summary Banner */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-[#202534] bg-gradient-to-r from-[#141724] via-[#11131c] to-[#0e1017] p-6 shadow-xl">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
-                      Creator Interview Studio
-                    </span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                    Welcome to OneGuest Studio
-                  </h2>
-                  <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-                    A dedicated remote recording platform for 1-on-1 creator interviews. Capture pristine, isolated host & guest audio and video tracks ready for post-production editing.
-                  </p>
+              {/* Studio Welcome Banner (Clean, Focused Header) */}
+              <div className="rounded-2xl border border-[#202534] bg-gradient-to-r from-[#141724] via-[#11131c] to-[#0e1017] p-6 shadow-xl space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+                    Creator Interview Studio
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreatedInviteUrl(null);
-                      setShowCreateModal(true);
-                    }}
-                    className="flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4 stroke-[2.8]" />
-                    <span>Create Interview</span>
-                  </button>
-                </div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                  Welcome to OneGuest Studio
+                </h2>
+                <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+                  A dedicated remote recording platform for 1-on-1 creator interviews. Capture pristine, isolated host & guest audio and video tracks ready for post-production editing.
+                </p>
               </div>
 
-              {/* 4 Summary Stats Cards */}
+              {/* 4 Real Data Metric Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Interviews</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Interviews</span>
                     <Radio className="h-4 w-4 text-purple-400" />
                   </div>
                   <div className="text-2xl font-extrabold text-white">{interviews.length}</div>
-                  <p className="text-[11px] text-slate-400">Scheduled & completed sessions</p>
+                  <p className="text-[11px] text-slate-400">Scheduled & active sessions</p>
                 </div>
 
                 <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
@@ -616,11 +594,13 @@ export function DashboardLayout() {
 
                 <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Engine Status</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Completed Sessions</span>
                     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                   </div>
-                  <div className="text-base font-extrabold text-emerald-400">100% Ready</div>
-                  <p className="text-[11px] text-slate-400">Lossless 4-stem recording</p>
+                  <div className="text-2xl font-extrabold text-emerald-400">
+                    {interviews.filter((i) => i.status === "completed" || !!recordingsByRoom[i.id]).length}
+                  </div>
+                  <p className="text-[11px] text-slate-400">Finished & verified recordings</p>
                 </div>
               </div>
 
@@ -1180,7 +1160,7 @@ export function DashboardLayout() {
                   <div>
                     <h3 className="text-sm font-bold text-white">Multi-Track Recording Architecture</h3>
                     <p className="text-xs text-slate-400">
-                      Riverside-inspired 4-stem separate recording pipeline
+                      Isolated 4-stem separate recording pipeline
                     </p>
                   </div>
                 </div>
@@ -1319,13 +1299,25 @@ export function DashboardLayout() {
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdInviteUrl);
-                      alert("Guest invite link copied to clipboard!");
+                    onClick={async () => {
+                      if (!createdInviteUrl) return;
+                      await navigator.clipboard.writeText(createdInviteUrl);
+                      setCopiedModalLink(true);
+                      setTimeout(() => setCopiedModalLink(false), 2500);
                     }}
-                    className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white cursor-pointer transition-colors"
                   >
-                    Copy
+                    {copiedModalLink ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
                   </button>
                 </div>
                 <button

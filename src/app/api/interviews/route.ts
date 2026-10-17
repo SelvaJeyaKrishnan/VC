@@ -34,12 +34,13 @@ export async function POST(req: NextRequest) {
       passcode: passcode || undefined,
     });
 
+    const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
     const origin =
       process.env.NEXT_PUBLIC_APP_URL ||
-      req.nextUrl.origin ||
-      "http://localhost:3000";
+      (forwardedHost ? `${forwardedProto}://${forwardedHost}` : req.nextUrl.origin);
 
-    const inviteUrl = `${origin}/?room=${encodeURIComponent(interview.id)}&name=${encodeURIComponent(
+    const inviteUrl = `${origin}/join?code=${encodeURIComponent(interview.id)}&name=${encodeURIComponent(
       interview.guestName
     )}`;
 

@@ -20,14 +20,28 @@ export async function GET(req: NextRequest) {
 
     const stat = fs.statSync(filePath);
     const fileBuffer = fs.readFileSync(filePath);
-    const contentType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
+    const isInline = req.nextUrl.searchParams.get("inline") === "true";
+
+    // Determine correct MIME type for isolated audio vs video stems
+    let contentType = "video/webm";
+    const lowerFile = file.toLowerCase();
+    if (lowerFile.includes("audio") || lowerFile.endsWith(".opus")) {
+      contentType = lowerFile.endsWith(".mp4") ? "audio/mp4" : "audio/webm; codecs=opus";
+    } else if (lowerFile.endsWith(".mp4")) {
+      contentType = "video/mp4";
+    } else if (lowerFile.endsWith(".wav")) {
+      contentType = "audio/wav";
+    }
+
+    const disposition = isInline ? `inline; filename="${file}"` : `attachment; filename="${file}"`;
 
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
         "Content-Length": stat.size.toString(),
-        "Content-Disposition": `attachment; filename="${file}"`,
+        "Content-Disposition": disposition,
+        "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=3600",
       },
     });

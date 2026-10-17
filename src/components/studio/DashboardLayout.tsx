@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
+  LayoutDashboard,
   Radio,
   FileVideo,
   Sliders,
@@ -26,6 +26,10 @@ import {
   RefreshCw,
   Search,
   ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  HardDrive,
+  Lock,
 } from "lucide-react";
 import { generateRoomId } from "@/lib/utils";
 import { PreflightMediaTest } from "./PreflightMediaTest";
@@ -33,13 +37,15 @@ import { RecordingsLibrary } from "./RecordingsLibrary";
 import type { Interview } from "@/types/studio";
 import type { RecordingSession } from "@/lib/recordingStore";
 
-type DashboardTab = "interviews" | "recordings" | "settings";
+export type DashboardTab = "dashboard" | "interviews" | "recordings" | "settings";
+
+type StatusFilter = "all" | "scheduled" | "active" | "completed";
 
 export function DashboardLayout() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<DashboardTab>("interviews");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Quick host launcher state
@@ -70,6 +76,7 @@ export function DashboardLayout() {
   const [recordingsByRoom, setRecordingsByRoom] = useState<Record<string, RecordingSession>>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
     setRoomId(generateRoomId("og"));
@@ -90,7 +97,9 @@ export function DashboardLayout() {
     }
 
     const tabParam = searchParams.get("tab");
-    if (tabParam === "recordings") {
+    if (tabParam === "dashboard") {
+      setActiveTab("dashboard");
+    } else if (tabParam === "recordings") {
       setActiveTab("recordings");
     } else if (tabParam === "settings") {
       setActiveTab("settings");
@@ -266,15 +275,34 @@ export function DashboardLayout() {
     }
   };
 
+  // Filtered interviews for the Interviews Tab
   const filteredInterviews = interviews.filter((i) => {
     const q = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       i.title.toLowerCase().includes(q) ||
       i.id.toLowerCase().includes(q) ||
       i.hostName.toLowerCase().includes(q) ||
-      (i.guestName && i.guestName.toLowerCase().includes(q))
-    );
+      (i.guestName && i.guestName.toLowerCase().includes(q));
+
+    if (!matchesSearch) return false;
+
+    if (statusFilter === "all") return true;
+    if (statusFilter === "completed") {
+      return i.status === "completed" || !!recordingsByRoom[i.id];
+    }
+    if (statusFilter === "active") {
+      return i.status === "active";
+    }
+    if (statusFilter === "scheduled") {
+      return i.status === "scheduled" && !recordingsByRoom[i.id];
+    }
+    return true;
   });
+
+  const totalRecordedStems = Object.values(recordingsByRoom).reduce(
+    (acc, session) => acc + (session.tracks?.length || 0),
+    0
+  );
 
   return (
     <div className="flex min-h-screen bg-[#0a0c10] text-slate-100 font-sans select-none antialiased">
@@ -300,7 +328,7 @@ export function DashboardLayout() {
           </div>
 
           {/* 1-on-1 Studio Badge */}
-          <div className="rounded-xl border border-[#202533] bg-[#161822] px-3 py-2 flex items-center justify-between">
+          <div className="rounded-xl border border-[#202534] bg-[#161822] px-3 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-purple-500" />
               <span className="text-xs font-semibold text-slate-200">1 Host • 1 Guest</span>
@@ -321,8 +349,25 @@ export function DashboardLayout() {
             <span>New Interview</span>
           </button>
 
-          {/* Navigation Items (Streamlined: 3 clean tabs) */}
+          {/* Navigation Items (The 4 Core Riverside Views) */}
           <nav className="space-y-1">
+            {/* 1. Dashboard */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("dashboard")}
+              className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === "dashboard"
+                  ? "bg-[#1d212d] text-white border border-[#2b3244] shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-[#161922]"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className={`h-4 w-4 ${activeTab === "dashboard" ? "text-purple-400" : "text-slate-400"}`} />
+                <span>Dashboard</span>
+              </div>
+            </button>
+
+            {/* 2. Interviews */}
             <button
               type="button"
               onClick={() => setActiveTab("interviews")}
@@ -343,6 +388,7 @@ export function DashboardLayout() {
               )}
             </button>
 
+            {/* 3. Recordings */}
             <button
               type="button"
               onClick={() => setActiveTab("recordings")}
@@ -363,6 +409,7 @@ export function DashboardLayout() {
               )}
             </button>
 
+            {/* 4. Settings */}
             <button
               type="button"
               onClick={() => setActiveTab("settings")}
@@ -373,7 +420,7 @@ export function DashboardLayout() {
               }`}
             >
               <Sliders className={`h-4 w-4 ${activeTab === "settings" ? "text-purple-400" : "text-slate-400"}`} />
-              <span>Hardware & Settings</span>
+              <span>Settings</span>
             </button>
           </nav>
         </div>
@@ -383,12 +430,12 @@ export function DashboardLayout() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-semibold text-slate-200">LiveKit Engine</span>
+              <span className="text-[11px] font-semibold text-slate-200">Recording Engine</span>
             </div>
             <span className="text-[10px] text-emerald-400 font-mono font-bold">READY</span>
           </div>
           <p className="text-[10px] text-slate-400 leading-tight">
-            Lossless host & guest separate track recording enabled
+            4-stem lossless isolated track capture enabled
           </p>
         </div>
       </aside>
@@ -417,11 +464,13 @@ export function DashboardLayout() {
             <span className="text-slate-500 font-medium">OneGuest Studio</span>
             <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
             <span className="font-semibold text-slate-200 capitalize">
-              {activeTab === "interviews"
+              {activeTab === "dashboard"
+                ? "Dashboard Overview"
+                : activeTab === "interviews"
                 ? "Interviews & Studio Rooms"
                 : activeTab === "recordings"
-                ? "Recording Library & Export"
-                : "Hardware Diagnostics"}
+                ? "Recording Library & Stems"
+                : "Hardware & Studio Settings"}
             </span>
           </div>
 
@@ -444,6 +493,17 @@ export function DashboardLayout() {
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-b border-[#1e2230] bg-[#11131a] p-3 space-y-1">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("dashboard");
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-[#1a1d27]"
+            >
+              <LayoutDashboard className="h-4 w-4 text-purple-400" />
+              <span>Dashboard</span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -488,10 +548,83 @@ export function DashboardLayout() {
 
         {/* Main Body */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-8 max-w-6xl w-full mx-auto">
-          {/* TAB 1: INTERVIEWS (Stage A Riverside Workflow) */}
-          {activeTab === "interviews" && (
+          {/* ========================================================= */}
+          {/* TAB 1: DASHBOARD (Overview & High-Level Studio Metrics)   */}
+          {/* ========================================================= */}
+          {activeTab === "dashboard" && (
             <div className="space-y-8">
-              {/* Riverside-Inspired Launch Deck (Host + Guest) */}
+              {/* Studio Welcome & Summary Banner */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-[#202534] bg-gradient-to-r from-[#141724] via-[#11131c] to-[#0e1017] p-6 shadow-xl">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+                      Creator Interview Studio
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                    Welcome to OneGuest Studio
+                  </h2>
+                  <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+                    A dedicated remote recording platform for 1-on-1 creator interviews. Capture pristine, isolated host & guest audio and video tracks ready for post-production editing.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatedInviteUrl(null);
+                      setShowCreateModal(true);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-purple-950/40 transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4 stroke-[2.8]" />
+                    <span>Create Interview</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Summary Stats Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Interviews</span>
+                    <Radio className="h-4 w-4 text-purple-400" />
+                  </div>
+                  <div className="text-2xl font-extrabold text-white">{interviews.length}</div>
+                  <p className="text-[11px] text-slate-400">Scheduled & completed sessions</p>
+                </div>
+
+                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Recorded Sessions</span>
+                    <FileVideo className="h-4 w-4 text-emerald-400" />
+                  </div>
+                  <div className="text-2xl font-extrabold text-white">{Object.keys(recordingsByRoom).length}</div>
+                  <p className="text-[11px] text-slate-400">Stored in recording manifest</p>
+                </div>
+
+                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Isolated Stems</span>
+                    <Layers className="h-4 w-4 text-cyan-400" />
+                  </div>
+                  <div className="text-2xl font-extrabold text-white">{totalRecordedStems}</div>
+                  <p className="text-[11px] text-slate-400">Host & Guest separate files</p>
+                </div>
+
+                <div className="rounded-2xl border border-[#202534] bg-[#12141d] p-4.5 space-y-2 shadow-lg">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Engine Status</span>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  </div>
+                  <div className="text-base font-extrabold text-emerald-400">100% Ready</div>
+                  <p className="text-[11px] text-slate-400">Lossless 4-stem recording</p>
+                </div>
+              </div>
+
+              {/* Riverside Launch Deck (Host + Guest) */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {/* 1. Instant Host Studio Session Card */}
                 <div className="rounded-2xl border border-[#202534] bg-gradient-to-b from-[#141722] to-[#0f1118] p-6 shadow-xl space-y-4">
@@ -670,134 +803,74 @@ export function DashboardLayout() {
                 </div>
               </div>
 
-              {/* Scheduled & Recent Interviews Section */}
+              {/* Recent Interviews Snapshot on Dashboard */}
               <div className="space-y-4 pt-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Radio className="h-4 w-4 text-purple-400" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                      Scheduled & Recent Interviews
+                      Recent Interviews & Quick Status
                     </h3>
-                    <span className="rounded-full bg-[#1e2330] px-2 py-0.5 text-[10px] font-mono font-medium text-slate-400">
-                      {interviews.length}
-                    </span>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {interviews.length > 0 && (
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search interviews..."
-                          className="rounded-xl border border-[#232736] bg-[#12141c] pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors w-44 sm:w-56"
-                        />
-                      </div>
-                    )}
+                  {interviews.length > 0 && (
                     <button
                       type="button"
-                      onClick={loadData}
-                      title="Refresh interviews"
-                      className="rounded-xl border border-[#282d3d] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                      onClick={() => setActiveTab("interviews")}
+                      className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
                     >
-                      <RefreshCw className={`h-3.5 w-3.5 ${isLoadingData ? "animate-spin" : ""}`} />
+                      <span>View all ({interviews.length})</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </button>
-                  </div>
+                  )}
                 </div>
 
-                {filteredInterviews.length === 0 && !isLoadingData && (
-                  <div className="rounded-2xl border border-dashed border-[#232736] bg-[#12141c]/50 p-10 text-center text-xs text-slate-400 space-y-3">
-                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                      <Calendar className="h-6 w-6 stroke-[1.8]" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-200 text-sm">
-                        {searchQuery ? "No matching interviews found" : "No interviews created yet"}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                        Click &quot;New Interview&quot; above to schedule an interview with guest invite links and separate track recording.
-                      </p>
-                    </div>
-                    {!searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCreatedInviteUrl(null);
-                          setShowCreateModal(true);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
-                      >
-                        <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
-                        <span>Create Interview</span>
-                      </button>
-                    )}
+                {interviews.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#232736] bg-[#12141c]/50 p-8 text-center text-xs text-slate-400 space-y-2">
+                    <p className="font-semibold text-slate-200">No interviews created yet</p>
+                    <p className="text-[11px] text-slate-400">
+                      Click &quot;New Interview&quot; above to create a private studio room and generate guest invitation links.
+                    </p>
                   </div>
-                )}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {interviews.slice(0, 3).map((interview) => {
+                      const sessionRec = recordingsByRoom[interview.id];
+                      const hasRecordings = sessionRec && sessionRec.tracks.length > 0;
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {filteredInterviews.map((interview) => {
-                    const sessionRec = recordingsByRoom[interview.id];
-                    const hasRecordings = sessionRec && sessionRec.tracks.length > 0;
-
-                    return (
-                      <div
-                        key={interview.id}
-                        className="rounded-2xl border border-[#202534] bg-[#141721] overflow-hidden hover:border-[#2e3549] transition-all flex flex-col justify-between shadow-xl group"
-                      >
-                        {/* Video Thumbnail Header (Riverside style) */}
-                        <div className="relative h-28 w-full bg-gradient-to-tr from-[#161925] via-[#1a1d2d] to-[#0f1118] border-b border-[#1c202d] flex items-center justify-between p-3.5 overflow-hidden">
-                          {/* Ambient background glow */}
-                          <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-600/10 rounded-full blur-xl pointer-events-none" />
-
-                          {/* Top room badge & status */}
-                          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
-                            <span className="font-mono text-[9px] font-bold text-purple-300 bg-black/60 border border-purple-500/30 px-2 py-0.5 rounded-md backdrop-blur-sm">
-                              {interview.id}
-                            </span>
-                            {hasRecordings ? (
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab("recordings")}
-                                className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1 backdrop-blur-sm hover:bg-emerald-500/30 transition-colors cursor-pointer"
-                                title="Click to view recorded tracks in library"
-                              >
-                                <Check className="h-2.5 w-2.5" />
-                                <span>{sessionRec.tracks.length} Stems Ready</span>
-                              </button>
-                            ) : (
-                              <span className="text-[9px] uppercase font-bold text-slate-300 bg-black/60 border border-slate-700 px-2 py-0.5 rounded-md backdrop-blur-sm">
-                                {interview.status || "Ready"}
+                      return (
+                        <div
+                          key={interview.id}
+                          className="rounded-2xl border border-[#202534] bg-[#141721] p-4.5 space-y-3 shadow-xl hover:border-[#2e3549] transition-all flex flex-col justify-between"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-[10px] font-bold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">
+                                {interview.id}
                               </span>
-                            )}
-                          </div>
-
-                          {/* Visual dual avatars for 1 Host + 1 Guest */}
-                          <div className="flex items-center gap-2 mt-4">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]" title={`Host: ${interview.hostName}`}>
-                              {interview.hostName[0]?.toUpperCase() || "H"}
+                              {hasRecordings ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab("recordings")}
+                                  className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Check className="h-2.5 w-2.5" />
+                                  <span>{sessionRec.tracks.length} Stems Ready</span>
+                                </button>
+                              ) : (
+                                <span className="text-[9px] uppercase font-bold text-slate-300 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-md">
+                                  {interview.status || "Ready"}
+                                </span>
+                              )}
                             </div>
-                            <span className="text-slate-500 text-xs font-bold">+</span>
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]" title={`Guest: ${interview.guestName || "Guest"}`}>
-                              {(interview.guestName || "G")[0]?.toUpperCase() || "G"}
-                            </div>
-                          </div>
-                        </div>
 
-                        {/* Content */}
-                        <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
-                          <div>
-                            <h4 className="text-xs font-bold text-white line-clamp-1 group-hover:text-purple-300 transition-colors">
-                              {interview.title}
-                            </h4>
-                            <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
-                              Host: <strong className="text-slate-300">{interview.hostName}</strong> • Guest:{" "}
-                              <strong className="text-slate-300">{interview.guestName || "Any Guest"}</strong>
+                            <h4 className="text-xs font-bold text-white line-clamp-1">{interview.title}</h4>
+                            <p className="text-[11px] text-slate-400">
+                              Host: <span className="text-slate-300 font-semibold">{interview.hostName}</span> • Guest:{" "}
+                              <span className="text-slate-300 font-semibold">{interview.guestName || "Guest"}</span>
                             </p>
                           </div>
 
-                          <div className="pt-2 border-t border-[#1c202d] flex items-center gap-2">
+                          <div className="flex items-center gap-2 pt-2 border-t border-[#1c202d]">
                             <button
                               type="button"
                               onClick={() => {
@@ -812,12 +885,11 @@ export function DashboardLayout() {
                             >
                               Enter Studio
                             </button>
-
                             <button
                               type="button"
                               onClick={() => handleCopySessionLink(interview)}
                               className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white cursor-pointer transition-colors"
-                              title="Copy Private Guest Invite Link"
+                              title="Copy Guest Invite Link"
                             >
                               {copiedSessionId === interview.id ? (
                                 <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -825,47 +897,375 @@ export function DashboardLayout() {
                                 <Copy className="h-3.5 w-3.5" />
                               )}
                             </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteInterview(interview.id)}
-                              className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
-                              title="Delete Interview"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* TAB 2: RECORDINGS LIBRARY (Stage E Riverside Workflow) */}
+          {/* ========================================================= */}
+          {/* TAB 2: INTERVIEWS (Dedicated Interview Management)        */}
+          {/* ========================================================= */}
+          {activeTab === "interviews" && (
+            <div className="space-y-6">
+              {/* Header & Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#202534] bg-[#141721] p-5 shadow-xl">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Radio className="h-4 w-4 text-purple-400" />
+                    <h3 className="text-sm font-bold text-white tracking-wide">
+                      Creator Interview Sessions
+                    </h3>
+                    <span className="rounded-full bg-[#1e2330] px-2 py-0.5 text-[10px] font-mono font-medium text-purple-300">
+                      {interviews.length} Total
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Create, manage, and reopen 1-on-1 remote recording sessions with secure guest invitation links.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatedInviteUrl(null);
+                      setShowCreateModal(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-2 text-xs font-bold shadow-md shadow-purple-950/40 transition-all cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
+                    <span>Create Interview</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadData}
+                    title="Refresh interviews"
+                    className="rounded-xl border border-[#282d3d] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isLoadingData ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Filters & Search Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Status Filter Buttons */}
+                <div className="flex items-center gap-1.5 p-1 rounded-xl border border-[#202534] bg-[#12141c]">
+                  {(["all", "scheduled", "active", "completed"] as StatusFilter[]).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setStatusFilter(tab)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all cursor-pointer ${
+                        statusFilter === tab
+                          ? "bg-purple-600 text-white shadow-sm"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {tab === "all" ? "All Interviews" : tab}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search interviews..."
+                    className="rounded-xl border border-[#232736] bg-[#12141c] pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none transition-colors w-full sm:w-64"
+                  />
+                </div>
+              </div>
+
+              {/* Empty State */}
+              {filteredInterviews.length === 0 && !isLoadingData && (
+                <div className="rounded-2xl border border-dashed border-[#232736] bg-[#12141c]/50 p-12 text-center text-xs text-slate-400 space-y-3">
+                  <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    <Calendar className="h-6 w-6 stroke-[1.8]" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-200 text-sm">
+                      {searchQuery || statusFilter !== "all"
+                        ? "No interviews match your filter"
+                        : "No interviews created yet"}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                      Click &quot;Create Interview&quot; above to schedule an interview with unique guest invite links and separate track recording.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatedInviteUrl(null);
+                      setShowCreateModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5 stroke-[2.8]" />
+                    <span>Create Interview</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Interview Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredInterviews.map((interview) => {
+                  const sessionRec = recordingsByRoom[interview.id];
+                  const hasRecordings = sessionRec && sessionRec.tracks.length > 0;
+
+                  return (
+                    <div
+                      key={interview.id}
+                      className="rounded-2xl border border-[#202534] bg-[#141721] overflow-hidden hover:border-[#2e3549] transition-all flex flex-col justify-between shadow-xl group"
+                    >
+                      {/* Video Thumbnail Header */}
+                      <div className="relative h-28 w-full bg-gradient-to-tr from-[#161925] via-[#1a1d2d] to-[#0f1118] border-b border-[#1c202d] flex items-center justify-between p-3.5 overflow-hidden">
+                        <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-600/10 rounded-full blur-xl pointer-events-none" />
+
+                        {/* Top room badge & status */}
+                        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                          <span className="font-mono text-[9px] font-bold text-purple-300 bg-black/60 border border-purple-500/30 px-2 py-0.5 rounded-md backdrop-blur-sm">
+                            {interview.id}
+                          </span>
+                          {hasRecordings ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("recordings")}
+                              className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1 backdrop-blur-sm hover:bg-emerald-500/30 transition-colors cursor-pointer"
+                              title="Click to view recorded tracks in library"
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              <span>{sessionRec.tracks.length} Stems Ready</span>
+                            </button>
+                          ) : (
+                            <span className="text-[9px] uppercase font-bold text-slate-300 bg-black/60 border border-slate-700 px-2 py-0.5 rounded-md backdrop-blur-sm">
+                              {interview.status || "Ready"}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Visual dual avatars for 1 Host + 1 Guest */}
+                        <div className="flex items-center gap-2 mt-4">
+                          <div
+                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]"
+                            title={`Host: ${interview.hostName}`}
+                          >
+                            {interview.hostName[0]?.toUpperCase() || "H"}
+                          </div>
+                          <span className="text-slate-500 text-xs font-bold">+</span>
+                          <div
+                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-600 text-white font-bold text-xs shadow-md ring-2 ring-[#141721]"
+                            title={`Guest: ${interview.guestName || "Guest"}`}
+                          >
+                            {(interview.guestName || "G")[0]?.toUpperCase() || "G"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-white line-clamp-1 group-hover:text-purple-300 transition-colors">
+                            {interview.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
+                            Host: <strong className="text-slate-300">{interview.hostName}</strong> • Guest:{" "}
+                            <strong className="text-slate-300">{interview.guestName || "Any Guest"}</strong>
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="pt-2 border-t border-[#1c202d] flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const params = new URLSearchParams({
+                                role: "host",
+                                name: interview.hostName || "Creator Host",
+                                title: interview.title,
+                              });
+                              router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
+                            }}
+                            className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold py-2 text-center transition-colors cursor-pointer shadow-md shadow-purple-950/40"
+                          >
+                            Enter Studio
+                          </button>
+
+                          {hasRecordings && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("recordings")}
+                              className="rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-2 text-emerald-300 hover:text-emerald-200 cursor-pointer transition-colors"
+                              title="View recordings in library"
+                            >
+                              <FileVideo className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopySessionLink(interview)}
+                            className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-300 hover:text-white cursor-pointer transition-colors"
+                            title="Copy Private Guest Invite Link"
+                          >
+                            {copiedSessionId === interview.id ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteInterview(interview.id)}
+                            className="rounded-xl border border-[#2b3144] bg-[#1a1e2b] p-2 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
+                            title="Delete Interview"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 3: RECORDINGS LIBRARY (Pristine Separate Stems)       */}
+          {/* ========================================================= */}
           {activeTab === "recordings" && (
             <div className="space-y-6">
               <RecordingsLibrary onStartSession={() => setActiveTab("interviews")} />
             </div>
           )}
 
-          {/* TAB 3: SETTINGS & HARDWARE (Stage F Riverside Workflow) */}
+          {/* ========================================================= */}
+          {/* TAB 4: SETTINGS & HARDWARE DIAGNOSTICS                    */}
+          {/* ========================================================= */}
           {activeTab === "settings" && (
-            <div className="space-y-6 max-w-2xl">
-              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4">
+            <div className="space-y-6 max-w-3xl">
+              {/* Hardware Diagnostics Card */}
+              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4 shadow-xl">
                 <div className="flex items-center gap-3 border-b border-[#1f2433] pb-4">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
                     <Sliders className="h-5 w-5" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white">Audio & Video Hardware Diagnostics</h3>
-                    <p className="text-xs text-slate-400">Verify your local camera resolution, microphone VU level, and selfie enhancer</p>
+                    <p className="text-xs text-slate-400">
+                      Verify your local camera feed, microphone VU level, audio devices, and selfie video enhancer
+                    </p>
                   </div>
                 </div>
 
                 <PreflightMediaTest />
+              </div>
+
+              {/* Studio Recording Architecture Card */}
+              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4 shadow-xl">
+                <div className="flex items-center gap-3 border-b border-[#1f2433] pb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Layers className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Multi-Track Recording Architecture</h3>
+                    <p className="text-xs text-slate-400">
+                      Riverside-inspired 4-stem separate recording pipeline
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <span className="h-2 w-2 rounded-full bg-purple-500" />
+                      <span>Host Video Stem</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Captured directly from local camera stream at pristine resolution (1080p WebM/VP9).
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <span className="h-2 w-2 rounded-full bg-purple-400" />
+                      <span>Host Audio Stem</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Clean isolated microphone capture. Zero cross-talk or background bleed from the guest.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <span className="h-2 w-2 rounded-full bg-cyan-500" />
+                      <span>Guest Video Stem</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Captured losslessly from remote guest track publication without downscaling.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                      <span>Guest Audio Stem</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Dedicated guest voice track (48kHz Opus) ready for Adobe Premiere or DaVinci Resolve.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Storage & Deployment Configuration */}
+              <div className="rounded-2xl border border-[#202534] bg-[#141721] p-6 space-y-4 shadow-xl">
+                <div className="flex items-center gap-3 border-b border-[#1f2433] pb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    <HardDrive className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Persistent Recording Storage</h3>
+                    <p className="text-xs text-slate-400">
+                      Render & Cloud deployment disk configuration
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs text-slate-300">
+                  <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-3.5 space-y-1 text-amber-200">
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <AlertCircle className="h-4 w-4 text-amber-400" />
+                      <span>Notice for Render.com / Ephemeral Cloud Deployments</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-300/90">
+                      Render&apos;s free web services use ephemeral disks that reset upon every redeploy. By default, OneGuest Studio stores recordings in <code className="font-mono text-purple-300">data/recordings</code>. For persistent production, attach a Persistent Disk on Render (e.g. at <code className="font-mono text-purple-300">/var/data/recordings</code>) and set the environment variable:
+                    </p>
+                    <div className="rounded-lg bg-black/60 p-2 font-mono text-[11px] text-emerald-300 mt-1.5">
+                      RECORDINGS_STORAGE_PATH=/var/data/recordings
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-white">
+                      <Lock className="h-4 w-4 text-purple-400" />
+                      <span>Guest Privacy & Security</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Guest links do not expose sensitive LiveKit API keys. Secure short-lived WebRTC tokens are minted on-demand server-side using your protected <code className="font-mono text-slate-300">LIVEKIT_API_SECRET</code>. Guests never need to register an account or provide payment credentials.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

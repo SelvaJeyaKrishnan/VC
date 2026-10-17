@@ -13,6 +13,7 @@ export interface RecordingTrack {
   durationSeconds?: number;
   offsetMs?: number;
   downloadUrl: string;
+  verified?: boolean;
 }
 
 export interface RecordingSyncTrack {
@@ -23,18 +24,31 @@ export interface RecordingSyncTrack {
   durationSeconds: number;
 }
 
+export interface RecordingVerification {
+  isComplete: boolean;
+  hasHostVideo: boolean;
+  hasHostAudio: boolean;
+  hasGuestVideo: boolean;
+  hasGuestAudio: boolean;
+  missingTracks: string[];
+  totalBytes: number;
+}
+
 export interface RecordingSession {
   roomId: string;
   recordedAt: string;
   durationSeconds: number;
   tracks: RecordingTrack[];
+  status?: "complete" | "partial" | "failed";
+  verification?: RecordingVerification;
   syncMetadata?: {
     sessionStartTime: string;
     tracks: RecordingSyncTrack[];
   };
 }
 
-const RECORDINGS_DIR = path.join(process.cwd(), "data", "recordings");
+const RECORDINGS_DIR =
+  process.env.RECORDINGS_STORAGE_PATH || path.join(process.cwd(), "data", "recordings");
 
 function ensureDirectoryExists(dir: string) {
   if (!fs.existsSync(dir)) {
@@ -94,6 +108,11 @@ export const recordingStore = {
     fs.writeFileSync(filePath, trackInfo.fileBuffer);
 
     const stats = fs.statSync(filePath);
+    if (stats.size === 0) {
+      fs.unlinkSync(filePath);
+      throw new Error(`Recording verification failed: ${fileName} was saved as 0 bytes.`);
+    }
+
     const trackType =
       trackInfo.trackType || (trackInfo.mimeType.startsWith("audio") ? "audio" : "video");
 
@@ -109,6 +128,7 @@ export const recordingStore = {
       durationSeconds: trackInfo.durationSeconds || 0,
       offsetMs: trackInfo.offsetMs || 0,
       downloadUrl: `/api/recordings/download?roomId=${encodeURIComponent(roomId)}&file=${encodeURIComponent(fileName)}`,
+      verified: true,
     };
 
     // Update or create manifest
@@ -145,6 +165,39 @@ export const recordingStore = {
       tracks: syncTracks,
     };
 
+    // Compute comprehensive 4-stem verification summary
+    const hasHostVideo = session.tracks.some(
+      (t) => t.role === "host" && (t.trackType === "video" || t.fileName.includes("host-video")) && t.fileSize > 0
+    );
+    const hasHostAudio = session.tracks.some(
+      (t) => t.role === "host" && (t.trackType === "audio" || t.fileName.includes("host-audio")) && t.fileSize > 0
+    );
+    const hasGuestVideo = session.tracks.some(
+      (t) => t.role === "guest" && (t.trackType === "video" || t.fileName.includes("guest-video")) && t.fileSize > 0
+    );
+    const hasGuestAudio = session.tracks.some(
+      (t) => t.role === "guest" && (t.trackType === "audio" || t.fileName.includes("guest-audio")) && t.fileSize > 0
+    );
+
+    const missingTracks: string[] = [];
+    if (!hasHostVideo) missingTracks.push("Host Video");
+    if (!hasHostAudio) missingTracks.push("Host Audio");
+    if (!hasGuestVideo) missingTracks.push("Guest Video");
+    if (!hasGuestAudio) missingTracks.push("Guest Audio");
+
+    const isComplete = hasHostVideo && hasHostAudio && hasGuestVideo && hasGuestAudio;
+
+    session.verification = {
+      isComplete,
+      hasHostVideo,
+      hasHostAudio,
+      hasGuestVideo,
+      hasGuestAudio,
+      missingTracks,
+      totalBytes: session.tracks.reduce((acc, t) => acc + t.fileSize, 0),
+    };
+    session.status = isComplete ? "complete" : "partial";
+
     fs.writeFileSync(
       path.join(roomDir, "manifest.json"),
       JSON.stringify(session, null, 2),
@@ -152,6 +205,69 @@ export const recordingStore = {
     );
 
     return newTrack;
+  },
+
+  verifySession(roomId: string): RecordingVerification {
+    const session = this.getManifest(roomId);
+    if (!session || !session.tracks) {
+      return {
+        isComplete: false,
+        hasHostVideo: false,
+        hasHostAudio: false,
+        hasGuestVideo: false,
+        hasGuestAudio: false,
+        missingTracks: ["Host Video", "Host Audio", "Guest Video", "Guest Audio"],
+        totalBytes: 0,
+      };
+    }
+
+    const roomDir = this.getRoomDir(roomId);
+    const validTracks = session.tracks.filter((t) => {
+      const p = path.join(roomDir, path.basename(t.fileName));
+      return fs.existsSync(p) && fs.statSync(p).size > 0;
+    });
+
+    const hasHostVideo = validTracks.some(
+      (t) => t.role === "host" && (t.trackType === "video" || t.fileName.includes("host-video"))
+    );
+    const hasHostAudio = validTracks.some(
+      (t) => t.role === "host" && (t.trackType === "audio" || t.fileName.includes("host-audio"))
+    );
+    const hasGuestVideo = validTracks.some(
+      (t) => t.role === "guest" && (t.trackType === "video" || t.fileName.includes("guest-video"))
+    );
+    const hasGuestAudio = validTracks.some(
+      (t) => t.role === "guest" && (t.trackType === "audio" || t.fileName.includes("guest-audio"))
+    );
+
+    const missingTracks: string[] = [];
+    if (!hasHostVideo) missingTracks.push("Host Video");
+    if (!hasHostAudio) missingTracks.push("Host Audio");
+    if (!hasGuestVideo) missingTracks.push("Guest Video");
+    if (!hasGuestAudio) missingTracks.push("Guest Audio");
+
+    return {
+      isComplete: hasHostVideo && hasHostAudio && hasGuestVideo && hasGuestAudio,
+      hasHostVideo,
+      hasHostAudio,
+      hasGuestVideo,
+      hasGuestAudio,
+      missingTracks,
+      totalBytes: validTracks.reduce((acc, t) => acc + t.fileSize, 0),
+    };
+  },
+
+  deleteSession(roomId: string): boolean {
+    try {
+      const roomDir = this.getRoomDir(roomId);
+      if (fs.existsSync(roomDir)) {
+        fs.rmSync(roomDir, { recursive: true, force: true });
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   },
 
   getAllSessions(): RecordingSession[] {

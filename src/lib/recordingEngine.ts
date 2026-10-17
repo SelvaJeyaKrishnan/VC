@@ -89,16 +89,54 @@ export function extractMediaStreamTrack(
   if (!participant) return null;
 
   try {
+    // 1. Direct source publication check
     const pub = participant.getTrackPublication ? participant.getTrackPublication(source) : null;
-    if (!pub) return null;
-
-    // Check if remote track is subscribed
-    if ("isSubscribed" in pub && !pub.isSubscribed) {
-      return null;
+    if (pub && (!("isSubscribed" in pub) || pub.isSubscribed !== false) && pub.track?.mediaStreamTrack) {
+      return pub.track.mediaStreamTrack;
     }
 
-    if (pub.track && pub.track.mediaStreamTrack) {
-      return pub.track.mediaStreamTrack;
+    // 2. Fallback to videoTrackPublications for Camera source
+    if (source === Track.Source.Camera && participant.videoTrackPublications) {
+      const vPubs =
+        participant.videoTrackPublications instanceof Map
+          ? Array.from(participant.videoTrackPublications.values())
+          : Object.values(participant.videoTrackPublications);
+      for (const p of vPubs as any[]) {
+        if ((!("isSubscribed" in p) || p.isSubscribed !== false) && p.track?.mediaStreamTrack) {
+          return p.track.mediaStreamTrack;
+        }
+      }
+    }
+
+    // 3. Fallback to audioTrackPublications for Microphone source
+    if (source === Track.Source.Microphone && participant.audioTrackPublications) {
+      const aPubs =
+        participant.audioTrackPublications instanceof Map
+          ? Array.from(participant.audioTrackPublications.values())
+          : Object.values(participant.audioTrackPublications);
+      for (const p of aPubs as any[]) {
+        if ((!("isSubscribed" in p) || p.isSubscribed !== false) && p.track?.mediaStreamTrack) {
+          return p.track.mediaStreamTrack;
+        }
+      }
+    }
+
+    // 4. Fallback to general trackPublications map
+    if (participant.trackPublications) {
+      const kindTarget = source === Track.Source.Camera ? "video" : "audio";
+      const allPubs =
+        participant.trackPublications instanceof Map
+          ? Array.from(participant.trackPublications.values())
+          : Object.values(participant.trackPublications);
+      for (const p of allPubs as any[]) {
+        if (
+          (p.kind === kindTarget || p.source === source) &&
+          (!("isSubscribed" in p) || p.isSubscribed !== false) &&
+          p.track?.mediaStreamTrack
+        ) {
+          return p.track.mediaStreamTrack;
+        }
+      }
     }
   } catch {
     // Participant might be mock or disconnected

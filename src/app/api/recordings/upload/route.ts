@@ -41,17 +41,20 @@ export async function POST(req: NextRequest) {
       offsetMs,
     });
 
-    // Mark interview recording status as completed or uploaded
+    // Mark interview recording status based on physical verification of tracks
+    const verification = recordingStore.verifySession(roomId);
     const interview = interviewStore.getById(roomId);
     if (interview) {
       interviewStore.update(roomId, {
-        recordingStatus: "completed",
+        recordingStatus: verification.isComplete ? "completed" : "uploaded",
+        status: verification.isComplete ? "completed" : interview.status,
       });
     }
 
     return NextResponse.json({
       success: true,
       track: savedTrack,
+      verification,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Recording upload failed";

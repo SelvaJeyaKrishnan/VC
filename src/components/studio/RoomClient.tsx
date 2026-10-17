@@ -63,21 +63,26 @@ export function RoomClient({
   const [showPreflight, setShowPreflight] = useState(false);
   const isErrorRef = useRef(false);
 
-  // Fetch session title from interview store if available
+  // Fetch session title and guest name from interview store if available
   useEffect(() => {
     let isMounted = true;
     fetch(`/api/interviews/${encodeURIComponent(roomId)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (isMounted && data?.interview?.title) {
-          setSessionTitle(data.interview.title);
+        if (isMounted && data?.interview) {
+          if (data.interview.title) {
+            setSessionTitle(data.interview.title);
+          }
+          if (!initialName && role === "guest" && data.interview.guestName) {
+            setDisplayName(data.interview.guestName);
+          }
         }
       })
       .catch(() => {});
     return () => {
       isMounted = false;
     };
-  }, [roomId]);
+  }, [roomId, initialName, role]);
 
   const fetchToken = useCallback(
     async (activeName: string) => {

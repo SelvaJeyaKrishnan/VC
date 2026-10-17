@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
 import {
   Mic,
@@ -15,14 +15,14 @@ import {
   Disc,
   Square,
   UploadCloud,
-  Monitor,
-  MonitorOff,
   Maximize2,
   Minimize2,
   Settings,
   X,
   Volume2,
   Sparkles,
+  Camera,
+  Headphones,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
@@ -57,16 +57,24 @@ export function MediaControls({
   onStopRecording,
 }: MediaControlsProps) {
   const room = useRoomContext();
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
     useLocalParticipant();
 
   const [copied, setCopied] = useState(false);
   const [isTogglingMic, setIsTogglingMic] = useState(false);
   const [isTogglingCam, setIsTogglingCam] = useState(false);
-  const [isTogglingScreen, setIsTogglingScreen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEnhancerPopover, setShowEnhancerPopover] = useState(false);
+
+  // In-call device switching states
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [selectedMicId, setSelectedMicId] = useState<string>("");
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<string>("");
+  const [isSwitchingDevice, setIsSwitchingDevice] = useState(false);
 
   const enhancer = useSelfieEnhancer(localParticipant);
 
@@ -77,6 +85,80 @@ export function MediaControls({
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
+
+  // Enumerate devices when settings modal opens
+  const refreshDevices = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const vInputs = devices.filter((d) => d.kind === "videoinput");
+      const aInputs = devices.filter((d) => d.kind === "audioinput");
+      const aOutputs = devices.filter((d) => d.kind === "audiooutput");
+
+      setVideoDevices(vInputs);
+      setAudioInputDevices(aInputs);
+      setAudioOutputDevices(aOutputs);
+
+      // Active devices from LiveKit room if available
+      try {
+        const activeCam = room.getActiveDevice("videoinput");
+        if (activeCam) setSelectedCameraId(activeCam);
+        const activeMic = room.getActiveDevice("audioinput");
+        if (activeMic) setSelectedMicId(activeMic);
+        const activeSpeaker = room.getActiveDevice("audiooutput");
+        if (activeSpeaker) setSelectedSpeakerId(activeSpeaker);
+      } catch {
+        // fallback
+      }
+    } catch (err) {
+      console.warn("Failed to enumerate devices in studio:", err);
+    }
+  }, [room]);
+
+  useEffect(() => {
+    if (showSettingsModal) {
+      refreshDevices();
+    }
+  }, [showSettingsModal, refreshDevices]);
+
+  const handleSwitchCamera = async (deviceId: string) => {
+    setSelectedCameraId(deviceId);
+    if (!room || !deviceId) return;
+    try {
+      setIsSwitchingDevice(true);
+      await room.switchActiveDevice("videoinput", deviceId);
+    } catch (err) {
+      console.error("Failed to switch camera:", err);
+    } finally {
+      setIsSwitchingDevice(false);
+    }
+  };
+
+  const handleSwitchMic = async (deviceId: string) => {
+    setSelectedMicId(deviceId);
+    if (!room || !deviceId) return;
+    try {
+      setIsSwitchingDevice(true);
+      await room.switchActiveDevice("audioinput", deviceId);
+    } catch (err) {
+      console.error("Failed to switch microphone:", err);
+    } finally {
+      setIsSwitchingDevice(false);
+    }
+  };
+
+  const handleSwitchSpeaker = async (deviceId: string) => {
+    setSelectedSpeakerId(deviceId);
+    if (!room || !deviceId) return;
+    try {
+      setIsSwitchingDevice(true);
+      await room.switchActiveDevice("audiooutput", deviceId);
+    } catch (err) {
+      console.error("Failed to switch speaker:", err);
+    } finally {
+      setIsSwitchingDevice(false);
+    }
+  };
 
   const toggleMic = async () => {
     if (!localParticipant || isTogglingMic) return;
@@ -102,18 +184,6 @@ export function MediaControls({
     }
   };
 
-  const toggleScreenShare = async () => {
-    if (!localParticipant || isTogglingScreen) return;
-    try {
-      setIsTogglingScreen(true);
-      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
-    } catch (err) {
-      console.error("Failed to toggle screen share:", err);
-    } finally {
-      setIsTogglingScreen(false);
-    }
-  };
-
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -123,7 +193,12 @@ export function MediaControls({
   };
 
   const handleLeave = () => {
-    if (confirm("Are you sure you want to exit the studio session?")) {
+    const isRecordingNow = recordingStatus === "recording";
+    const confirmMsg = isRecordingNow
+      ? "Recording is currently active! If you leave now, the recording session will end immediately. Are you sure you want to exit?"
+      : "Are you sure you want to exit the studio session?";
+
+    if (confirm(confirmMsg)) {
       room.disconnect();
       if (onLeaveCall) {
         onLeaveCall();
@@ -135,7 +210,7 @@ export function MediaControls({
 
   const copyInviteLink = async () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const inviteUrl = `${origin}/?room=${encodeURIComponent(roomId)}`;
+    const inviteUrl = `${origin}/join?code=${encodeURIComponent(roomId)}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
@@ -162,7 +237,7 @@ export function MediaControls({
           className
         )}
       >
-        {/* Left Section: Connection State & Invite Action */}
+        {/* Left Section: Connection Status & Copy Guest Invite */}
         <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3">
           <ConnectionStatusBadge />
 
@@ -186,7 +261,7 @@ export function MediaControls({
           </button>
         </div>
 
-        {/* Center Section: Primary Recording Toolbar */}
+        {/* Center Section: Primary Recording Toolbar (Minimal, Uncluttered) */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Microphone Toggle */}
           <button
@@ -230,28 +305,7 @@ export function MediaControls({
             )}
           </button>
 
-          {/* Screen Share Toggle */}
-          <button
-            type="button"
-            onClick={toggleScreenShare}
-            disabled={isTogglingScreen}
-            className={cn(
-              "flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border transition-all active:scale-[0.96] cursor-pointer",
-              isScreenShareEnabled
-                ? "border-purple-500/70 bg-purple-600/30 text-purple-300 ring-1 ring-purple-500/40"
-                : "border-[#2b3144] bg-[#1a1e2b] text-slate-300 hover:bg-[#23283a] hover:text-white"
-            )}
-            title={isScreenShareEnabled ? "Stop Sharing Screen" : "Share Screen"}
-            aria-label="Toggle Screen Share"
-          >
-            {isScreenShareEnabled ? (
-              <MonitorOff className="h-4.5 w-4.5 text-purple-300" />
-            ) : (
-              <Monitor className="h-4.5 w-4.5" />
-            )}
-          </button>
-
-          {/* Selfie Enhancer (Beauty Smoothing & Studio Ring Lighting) */}
+          {/* Selfie Enhancer (Beauty Smoothing & Lighting) */}
           <div className="relative">
             <button
               type="button"
@@ -265,7 +319,7 @@ export function MediaControls({
               title={
                 enhancer.isEnabled
                   ? `Selfie Enhancer Active (${enhancer.strength}%) • Click to adjust`
-                  : "Selfie Enhancer (Beauty & Studio Lighting)"
+                  : "Selfie Enhancer (Lighting & Smoothing)"
               }
               aria-label="Selfie Enhancer"
             >
@@ -367,12 +421,12 @@ export function MediaControls({
             )
           )}
 
-          {/* In-Studio Hardware Settings */}
+          {/* In-Studio Hardware & Device Settings */}
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
             className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-[#2b3144] bg-[#1a1e2b] text-slate-300 hover:bg-[#23283a] hover:text-white transition-all active:scale-[0.96] cursor-pointer"
-            title="Studio Settings"
+            title="Studio Settings & Device Selection"
             aria-label="Studio Settings"
           >
             <Settings className="h-4.5 w-4.5" />
@@ -405,7 +459,7 @@ export function MediaControls({
           </button>
         </div>
 
-        {/* Right Section: Status Indicator */}
+        {/* Right Section: Session Room Identifier */}
         <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-400">
           <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
             OneGuest Studio
@@ -413,7 +467,7 @@ export function MediaControls({
         </div>
       </div>
 
-      {/* In-Studio Settings Modal */}
+      {/* In-Studio Hardware & Device Settings Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="w-full max-w-md rounded-2xl border border-[#282d3d] bg-[#13151f] p-5 shadow-2xl space-y-4">
@@ -421,7 +475,7 @@ export function MediaControls({
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-purple-400" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-                  Studio Settings & Hardware
+                  Studio Hardware & Devices
                 </h4>
               </div>
               <button
@@ -433,23 +487,78 @@ export function MediaControls({
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3 space-y-2">
-                <span className="font-semibold text-slate-300 block">Session Information</span>
-                <div className="flex items-center justify-between text-slate-400">
-                  <span>Room Identifier:</span>
-                  <span className="font-mono font-bold text-purple-300">{roomId}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-400">
-                  <span>Participant Role:</span>
-                  <span className="uppercase font-bold text-slate-200">{role}</span>
-                </div>
+            <div className="space-y-3.5 text-xs">
+              {/* Camera Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
+                  <Camera className="h-3 w-3 text-purple-400" />
+                  <span>Camera Device</span>
+                </label>
+                <select
+                  value={selectedCameraId}
+                  disabled={isSwitchingDevice}
+                  onChange={(e) => handleSwitchCamera(e.target.value)}
+                  className="w-full rounded-xl border border-[#262c3b] bg-[#0c0d14] px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                >
+                  {videoDevices.map((d) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Camera ${d.deviceId.substring(0, 5)}...`}
+                    </option>
+                  ))}
+                  {videoDevices.length === 0 && <option value="">Default Camera</option>}
+                </select>
               </div>
 
-              <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3 space-y-2">
-                <span className="font-semibold text-slate-300 block">Media Controls Guide</span>
+              {/* Microphone Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
+                  <Mic className="h-3 w-3 text-purple-400" />
+                  <span>Microphone Device</span>
+                </label>
+                <select
+                  value={selectedMicId}
+                  disabled={isSwitchingDevice}
+                  onChange={(e) => handleSwitchMic(e.target.value)}
+                  className="w-full rounded-xl border border-[#262c3b] bg-[#0c0d14] px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                >
+                  {audioInputDevices.map((d) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Microphone ${d.deviceId.substring(0, 5)}...`}
+                    </option>
+                  ))}
+                  {audioInputDevices.length === 0 && <option value="">Default Microphone</option>}
+                </select>
+              </div>
+
+              {/* Output Speaker Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
+                  <Volume2 className="h-3 w-3 text-purple-400" />
+                  <span>Audio Output / Speaker</span>
+                </label>
+                <select
+                  value={selectedSpeakerId}
+                  disabled={isSwitchingDevice}
+                  onChange={(e) => handleSwitchSpeaker(e.target.value)}
+                  className="w-full rounded-xl border border-[#262c3b] bg-[#0c0d14] px-3 py-2 text-xs text-slate-200 focus:border-purple-500 focus:outline-none"
+                >
+                  {audioOutputDevices.map((d) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Speaker ${d.deviceId.substring(0, 5)}...`}
+                    </option>
+                  ))}
+                  {audioOutputDevices.length === 0 && <option value="">System Default Audio</option>}
+                </select>
+              </div>
+
+              {/* Acoustic & Multi-Track Recording Info */}
+              <div className="rounded-xl border border-[#232736] bg-[#0c0d14] p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-slate-300 font-semibold text-[11px]">
+                  <Headphones className="h-3.5 w-3.5 text-purple-400" />
+                  <span>Isolated Hardware Capture</span>
+                </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Screen sharing, camera, and microphone toggles transmit in high-definition WebRTC without downscaling. Multi-track recording captures local streams directly before network compression.
+                  Your audio and video are recorded directly from your local hardware device before network compression, providing pristine studio-quality stems.
                 </p>
               </div>
             </div>
@@ -457,9 +566,9 @@ export function MediaControls({
             <button
               type="button"
               onClick={() => setShowSettingsModal(false)}
-              className="w-full rounded-xl bg-purple-600 hover:bg-purple-500 py-2.5 text-xs font-bold text-white cursor-pointer"
+              className="w-full rounded-xl bg-purple-600 hover:bg-purple-500 py-2.5 text-xs font-bold text-white cursor-pointer transition-colors"
             >
-              Close
+              Done
             </button>
           </div>
         </div>

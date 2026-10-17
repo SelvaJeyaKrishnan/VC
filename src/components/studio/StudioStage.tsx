@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useTracks,
   useLocalParticipant,
@@ -9,7 +9,7 @@ import {
   type TrackReferenceOrPlaceholder,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { Radio, Users, Copy, Check, Disc, Video, Share2 } from "lucide-react";
+import { Radio, Users, Copy, Check, Disc, Video, Share2, AlertTriangle, WifiOff, CheckCircle2 } from "lucide-react";
 import { ParticipantTile } from "./ParticipantTile";
 import { MediaControls } from "./MediaControls";
 import { RecordingBar } from "./RecordingBar";
@@ -33,6 +33,11 @@ export function StudioStage({
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Guest disconnect & reconnect tracking
+  const [guestDisconnected, setGuestDisconnected] = useState(false);
+  const [guestReconnectedNotice, setGuestReconnectedNotice] = useState(false);
+  const hadRemoteParticipantRef = useRef(false);
+
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
@@ -44,6 +49,21 @@ export function StudioStage({
     localParticipant?.name?.toLowerCase().includes("host")
       ? "host"
       : "guest");
+
+  // Track guest connections and disconnections
+  useEffect(() => {
+    if (remoteParticipants.length > 0) {
+      if (guestDisconnected) {
+        setGuestDisconnected(false);
+        setGuestReconnectedNotice(true);
+        const timer = setTimeout(() => setGuestReconnectedNotice(false), 4000);
+        return () => clearTimeout(timer);
+      }
+      hadRemoteParticipantRef.current = true;
+    } else if (hadRemoteParticipantRef.current && remoteParticipants.length === 0) {
+      setGuestDisconnected(true);
+    }
+  }, [remoteParticipants.length, guestDisconnected]);
 
   // Multi-Track Recording Engine (Host & Guest Isolated Audio/Video Capture)
   const {
@@ -112,7 +132,7 @@ export function StudioStage({
 
   const handleCopyLink = async () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const inviteUrl = `${origin}/?room=${encodeURIComponent(roomId)}`;
+    const inviteUrl = `${origin}/join?code=${encodeURIComponent(roomId)}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopiedLink(true);
@@ -188,6 +208,21 @@ export function StudioStage({
         </div>
       </header>
 
+      {/* Guest Disconnect / Reconnect Banner */}
+      {guestDisconnected && (
+        <div className="bg-amber-950/90 border-b border-amber-800/80 px-4 py-2 text-xs text-amber-200 flex items-center justify-center gap-2 z-30 animate-pulse">
+          <WifiOff className="h-4 w-4 text-amber-400 shrink-0" />
+          <span>Guest disconnected. Waiting for guest to reconnect... Studio tracks remain protected.</span>
+        </div>
+      )}
+
+      {guestReconnectedNotice && (
+        <div className="bg-emerald-950/90 border-b border-emerald-800/80 px-4 py-2 text-xs text-emerald-200 flex items-center justify-center gap-2 z-30">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>Guest reconnected! Both participant feeds are live.</span>
+        </div>
+      )}
+
       {/* Floating Coordinated Recording Status / Upload Progress Banner */}
       <div className="pt-2 z-30">
         <RecordingBar
@@ -255,7 +290,7 @@ export function StudioStage({
                 <input
                   type="text"
                   readOnly
-                  value={typeof window !== "undefined" ? `${window.location.origin}/?room=${roomId}` : roomId}
+                  value={typeof window !== "undefined" ? `${window.location.origin}/join?code=${roomId}` : roomId}
                   className="w-full rounded-xl border border-[#262c3b] bg-[#0c0e14] px-3.5 py-2 text-xs font-mono text-purple-300 focus:outline-none"
                 />
                 <button

@@ -87,7 +87,7 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=generate_a_long_random_secret
-AUTHORIZED_HOST_EMAIL=the-authorized-google-account@example.com
+AUTHORIZED_HOST_EMAIL=selva72007@gmail.com
 
 # Optional Base URL for absolute guest invite links
 NEXT_PUBLIC_APP_URL=http://localhost:3000

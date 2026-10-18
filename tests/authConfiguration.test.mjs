@@ -30,7 +30,7 @@ test("auth configuration reports only missing variable names", () => {
       GOOGLE_CLIENT_SECRET: "  ",
       NEXTAUTH_SECRET: undefined,
       NEXTAUTH_URL: "https://studio.example",
-      AUTHORIZED_HOST_EMAIL: "host@example.com",
+      AUTHORIZED_HOST_EMAIL: "selva72007@gmail.com",
     }),
     ["GOOGLE_CLIENT_SECRET", "NEXTAUTH_SECRET"]
   );

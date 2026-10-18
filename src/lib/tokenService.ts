@@ -1,10 +1,13 @@
 import { AccessToken } from "livekit-server-sdk";
+import { isValidRoomId } from "./utils.ts";
 
 export interface TokenRequestParams {
   room?: string;
   identity?: string;
   name?: string;
   role?: "host" | "guest";
+  inviteToken?: string;
+  passcode?: string;
 }
 
 export interface TokenValidationResult {
@@ -193,6 +196,10 @@ export function validateTokenCredentials(env: {
 export function validateTokenParams(params: TokenRequestParams): TokenValidationResult {
   if (!params.room || !params.room.trim()) {
     return { valid: false, status: 400, error: "Room name or code is required." };
+  }
+
+  if (!isValidRoomId(params.room.trim())) {
+    return { valid: false, status: 400, error: "Room name contains unsupported characters." };
   }
 
   if (!params.identity || !params.identity.trim()) {

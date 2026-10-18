@@ -67,25 +67,25 @@ test("normalizeLiveKitUrl converts web URLs and handles multi-line pasted blocks
   );
 
   // Multi-line accidental bulk paste from .env (the exact production issue discovered on Render)
-  const pastedEnvBlock = `wss://one-guest-4ys3yv0s.livekit.cloud
-LIVEKIT_API_KEY=APIHucHTekxCSqa
-LIVEKIT_API_SECRET=tgyfw00cyMNb7gubnX3evVbLAvezIAGeMQZYk1JH6qZB`;
+  const pastedEnvBlock = `wss://example-project.livekit.cloud
+LIVEKIT_API_KEY=API_TEST_KEY
+LIVEKIT_API_SECRET=TEST_ONLY_SECRET_VALUE`;
 
   const clean = normalizeLiveKitUrl(pastedEnvBlock);
-  assert.strictEqual(clean, "wss://one-guest-4ys3yv0s.livekit.cloud");
+  assert.strictEqual(clean, "wss://example-project.livekit.cloud");
   assert.strictEqual(clean.includes("\n"), false, "Clean URL must never contain newlines");
-  assert.strictEqual(clean.includes("APIHucHTekxCSqa"), false, "Clean URL must never contain secrets");
+  assert.strictEqual(clean.includes("API_TEST_KEY"), false, "Clean URL must never contain secrets");
 });
 
 test("resolveLiveKitCredentials extracts credentials even if bulk-pasted into LIVEKIT_URL", () => {
-  const pastedEnvBlock = `wss://one-guest-4ys3yv0s.livekit.cloud
-LIVEKIT_API_KEY=APIHucHTekxCSqa
-LIVEKIT_API_SECRET=tgyfw00cyMNb7gubnX3evVbLAvezIAGeMQZYk1JH6qZB`;
+  const pastedEnvBlock = `wss://example-project.livekit.cloud
+LIVEKIT_API_KEY=API_TEST_KEY
+LIVEKIT_API_SECRET=TEST_ONLY_SECRET_VALUE`;
 
   const resolved = resolveLiveKitCredentials({ livekitUrl: pastedEnvBlock });
-  assert.strictEqual(resolved.livekitUrl, "wss://one-guest-4ys3yv0s.livekit.cloud");
-  assert.strictEqual(resolved.apiKey, "APIHucHTekxCSqa");
-  assert.strictEqual(resolved.apiSecret, "tgyfw00cyMNb7gubnX3evVbLAvezIAGeMQZYk1JH6qZB");
+  assert.strictEqual(resolved.livekitUrl, "wss://example-project.livekit.cloud");
+  assert.strictEqual(resolved.apiKey, "API_TEST_KEY");
+  assert.strictEqual(resolved.apiSecret, "TEST_ONLY_SECRET_VALUE");
 
   // Verify normal individual variables also resolve cleanly
   const normalResolved = resolveLiveKitCredentials({
@@ -135,6 +135,10 @@ test("validateTokenParams validates required room and participant identity", () 
   assert.strictEqual(noId.valid, false);
   assert.strictEqual(noId.status, 400);
   assert.strictEqual(noId.error, "Participant identity is required.");
+
+  const unsafeRoom = validateTokenParams({ room: "../outside", identity: "guest-123" });
+  assert.strictEqual(unsafeRoom.valid, false);
+  assert.strictEqual(unsafeRoom.status, 400);
 
   // Valid
   const validParams = validateTokenParams({ room: "studio-og-123", identity: "host-alex" });

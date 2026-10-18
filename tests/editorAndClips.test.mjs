@@ -1,10 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  generateDefaultTranscript,
+  createEmptyTranscript,
   generateSRT,
   generatePlainText,
-  generateMagicClips,
   formatSRTTime,
 } from "../src/lib/transcriptEngine.ts";
 
@@ -14,38 +13,44 @@ test("formatSRTTime formats seconds into accurate SubRip timecode", () => {
   assert.strictEqual(formatSRTTime(3661.125), "01:01:01,125");
 });
 
-test("generateDefaultTranscript produces structured word-level timestamps and speaker dialogue", () => {
-  const transcript = generateDefaultTranscript({
+test("createEmptyTranscript does not fabricate dialogue", () => {
+  const transcript = createEmptyTranscript({
     roomId: "test-studio-room",
     durationSeconds: 120,
-    hostName: "Host Alex",
-    guestName: "Guest Jordan",
   });
 
   assert.strictEqual(transcript.roomId, "test-studio-room");
   assert.strictEqual(transcript.durationSeconds, 120);
-  assert.ok(transcript.paragraphs.length >= 4);
-
-  // Check paragraph structure
-  const firstP = transcript.paragraphs[0];
-  assert.strictEqual(firstP.speakerName, "Host Alex");
-  assert.ok(firstP.words.length > 5);
-
-  // Verify timestamps are non-decreasing
-  let lastTime = 0;
-  firstP.words.forEach((w) => {
-    assert.ok(w.start >= lastTime, `Word ${w.word} start ${w.start} should be >= ${lastTime}`);
-    assert.ok(w.end > w.start, `Word ${w.word} end should be > start`);
-    lastTime = w.start;
-  });
+  assert.deepStrictEqual(transcript.paragraphs, []);
+  assert.deepStrictEqual(transcript.cuts, []);
 });
 
-test("Text-based video editing: deleting words strikes them out from SRT and plain text exports", () => {
-  const transcript = generateDefaultTranscript({
-    roomId: "cut-test-room",
-    durationSeconds: 90,
-  });
+test("empty transcript produces empty text and subtitle exports", () => {
+  assert.strictEqual(generateSRT([]), "");
+  assert.strictEqual(generatePlainText([]), "");
+});
 
+test("Text-based editing excludes deleted words from SRT and plain text exports", () => {
+  const transcript = {
+    roomId: "cut-test-room",
+    durationSeconds: 10,
+    cuts: [],
+    updatedAt: new Date().toISOString(),
+    paragraphs: [{
+      id: "p-1",
+      speaker: "host",
+      speakerName: "Host",
+      start: 1,
+      end: 3,
+      text: "Welcome to the studio",
+      words: [
+        { id: "w-1", word: "Welcome", start: 1, end: 1.5, speaker: "Host", deleted: false },
+        { id: "w-2", word: "to", start: 1.6, end: 1.8, speaker: "Host", deleted: false },
+        { id: "w-3", word: "the", start: 1.9, end: 2, speaker: "Host", deleted: false },
+        { id: "w-4", word: "studio", start: 2.1, end: 2.8, speaker: "Host", deleted: false },
+      ],
+    }],
+  };
   const fullSRT = generateSRT(transcript.paragraphs);
   const fullText = generatePlainText(transcript.paragraphs);
   assert.ok(fullSRT.includes("1\n00:00:"));
@@ -61,23 +66,4 @@ test("Text-based video editing: deleting words strikes them out from SRT and pla
 
   // First word should now be absent from the exported active text
   assert.ok(!editedText.startsWith(`[00:01] Host:\n${targetWordStr}`));
-});
-
-test("generateMagicClips analyzes speech and identifies high-engagement 9:16 short clips", () => {
-  const transcript = generateDefaultTranscript({
-    roomId: "clips-test-room",
-    durationSeconds: 150,
-  });
-
-  const clips = generateMagicClips(transcript);
-  assert.ok(clips.length >= 3);
-
-  clips.forEach((clip) => {
-    assert.ok(clip.viralityScore >= 90, "Virality score should be high engagement (>=90)");
-    assert.ok(clip.duration > 10, "Clip duration should be a valid short (>10s)");
-    assert.ok(clip.end > clip.start);
-    assert.ok(clip.title.length > 5);
-    assert.ok(clip.hook.length > 10);
-    assert.ok(clip.tags.length >= 1);
-  });
 });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Radio,
@@ -34,6 +35,8 @@ import {
   Play,
   Subtitles,
   FileText,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import { generateRoomId } from "@/lib/utils";
@@ -49,6 +52,13 @@ type StatusFilter = "all" | "scheduled" | "active" | "completed";
 export function DashboardLayout() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status: authStatus } = useSession();
+  const [authConfiguration, setAuthConfiguration] = useState<
+    | { status: "loading" }
+    | { status: "configured" }
+    | { status: "missing"; variables: string[] }
+    | { status: "error"; message: string }
+  >({ status: "loading" });
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -61,10 +71,12 @@ export function DashboardLayout() {
   const [copiedQuickLink, setCopiedQuickLink] = useState(false);
   const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
 
   // Quick guest join state
   const [guestCode, setGuestCode] = useState("");
   const [guestName, setGuestName] = useState("");
+  const [guestPasscode, setGuestPasscode] = useState("");
   const [guestError, setGuestError] = useState<string | null>(null);
 
   // Create Interview Modal
@@ -74,6 +86,7 @@ export function DashboardLayout() {
   const [modalPasscode, setModalPasscode] = useState("");
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+  const [createdGuestPasscode, setCreatedGuestPasscode] = useState<string | null>(null);
   const [copiedModalLink, setCopiedModalLink] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -85,23 +98,51 @@ export function DashboardLayout() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => {
+    let active = true;
+
+    fetch("/api/auth/configuration", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Configuration check failed (${response.status}).`);
+        }
+
+        const data = (await response.json()) as { configured?: boolean; missing?: string[] };
+        if (typeof data.configured !== "boolean" || !Array.isArray(data.missing)) {
+          throw new Error("Configuration check returned an invalid response.");
+        }
+
+        if (active) {
+          setAuthConfiguration(
+            data.configured
+              ? { status: "configured" }
+              : { status: "missing", variables: data.missing }
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to check Google sign-in configuration:", error);
+        if (active) {
+          setAuthConfiguration({
+            status: "error",
+            message: error instanceof Error ? error.message : "Unknown configuration error.",
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setRoomId(generateRoomId("og"));
     if (typeof window !== "undefined") {
       setOrigin(window.location.origin);
     }
   }, []);
 
-  // Handle guest invite link redirection
+  // Dashboard tab selection
   useEffect(() => {
-    const roomParam = searchParams.get("room") || searchParams.get("code");
-    const nameParam = searchParams.get("name") || "";
-    if (roomParam) {
-      const query = new URLSearchParams({ role: "guest" });
-      if (nameParam) query.set("name", nameParam);
-      router.replace(`/room/${encodeURIComponent(roomParam.trim())}?${query.toString()}`);
-      return;
-    }
-
     const tabParam = searchParams.get("tab");
     if (tabParam === "dashboard") {
       setActiveTab("dashboard");
@@ -116,9 +157,14 @@ export function DashboardLayout() {
     } else if (tabParam === "interviews" || tabParam === "overview" || tabParam === "sessions") {
       setActiveTab("interviews");
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   const loadData = useCallback(async () => {
+    if (authStatus !== "authenticated") {
+      setIsLoadingData(authStatus === "loading");
+      return;
+    }
+
     setIsLoadingData(true);
     try {
       const [intRes, recRes] = await Promise.all([
@@ -144,20 +190,45 @@ export function DashboardLayout() {
     } finally {
       setIsLoadingData(false);
     }
-  }, []);
+  }, [authStatus]);
 
   useEffect(() => {
-    loadData();
+    if (authStatus === "authenticated") {
+      loadData();
+    }
   }, [loadData]);
 
-  const buildGuestLink = (interviewId: string, guest?: string) => {
+  const buildGuestLink = (inviteToken: string, guest?: string) => {
     const base = origin || (typeof window !== "undefined" ? window.location.origin : "");
-    const guestParam = guest ? `&name=${encodeURIComponent(guest)}` : "";
-    return `${base}/join?code=${encodeURIComponent(interviewId)}${guestParam}`;
+    const guestParam = guest ? `?name=${encodeURIComponent(guest)}` : "";
+    return `${base}/join/${encodeURIComponent(inviteToken)}${guestParam}`;
   };
 
   const handleCopyHostInvite = async () => {
-    const inviteUrl = buildGuestLink(roomId, "Guest");
+    let interview = interviews.find((item) => item.id === roomId);
+    if (!interview) {
+      try {
+        const response = await fetch("/api/interviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: roomId,
+            title: sessionTitle.trim() || `Studio Interview - ${roomId}`,
+            hostName: hostName.trim() || "Creator Host",
+            guestName: "Guest",
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to create studio invitation.");
+        const createdInterview = data.interview as Interview;
+        interview = createdInterview;
+        setInterviews((current) => [createdInterview, ...current]);
+      } catch (error) {
+        setLaunchError(error instanceof Error ? error.message : "Failed to create studio invitation.");
+        return;
+      }
+    }
+    const inviteUrl = buildGuestLink(interview.inviteToken, interview.guestName);
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopiedQuickLink(true);
@@ -168,7 +239,7 @@ export function DashboardLayout() {
   };
 
   const handleCopySessionLink = async (interview: Interview) => {
-    const inviteUrl = buildGuestLink(interview.id, interview.guestName);
+    const inviteUrl = buildGuestLink(interview.inviteToken, interview.guestName);
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopiedSessionId(interview.id);
@@ -183,8 +254,9 @@ export function DashboardLayout() {
     if (!roomId.trim() || !hostName.trim()) return;
 
     setIsLaunching(true);
+    setLaunchError(null);
     try {
-      await fetch("/api/interviews", {
+      const response = await fetch("/api/interviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -194,16 +266,17 @@ export function DashboardLayout() {
           guestName: "Guest",
         }),
       });
-    } catch {
-      // Continue anyway
-    }
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create studio session.");
+      }
 
-    const params = new URLSearchParams({
-      role: "host",
-      name: hostName.trim(),
-      title: sessionTitle.trim(),
-    });
-    router.push(`/room/${encodeURIComponent(roomId.trim())}?${params.toString()}`);
+      router.push(`/studio/${encodeURIComponent(data.interview.id)}`);
+    } catch (err: unknown) {
+      setLaunchError(err instanceof Error ? err.message : "Failed to create studio session.");
+    } finally {
+      setIsLaunching(false);
+    }
   };
 
   const handleJoinGuest = (e: React.FormEvent) => {
@@ -219,23 +292,26 @@ export function DashboardLayout() {
     try {
       if (cleanCode.startsWith("http://") || cleanCode.startsWith("https://")) {
         const url = new URL(cleanCode);
-        const queryRoom = url.searchParams.get("room") || url.searchParams.get("code");
-        if (queryRoom) cleanCode = queryRoom.trim();
-        else {
-          const segs = url.pathname.split("/").filter(Boolean);
-          if (segs[0] === "room" && segs[1]) cleanCode = segs[1].trim();
-        }
+        const segments = url.pathname.split("/").filter(Boolean);
+        cleanCode = segments[0] === "join" && segments[1] ? segments[1] : "";
       }
     } catch {
-      // not a url
+      if (!/^[A-Za-z0-9_-]{40,}$/.test(cleanCode)) cleanCode = "";
+    }
+
+    if (!cleanCode) {
+      setGuestError("That is not a secure invitation link. Ask the host to send you a valid link.");
+      return;
     }
 
     const name = guestName.trim() || "Guest Participant";
     const params = new URLSearchParams({
-      role: "guest",
       name,
     });
-    router.push(`/room/${encodeURIComponent(cleanCode)}?${params.toString()}`);
+    if (guestPasscode.trim()) {
+      window.sessionStorage.setItem(`oneguest:invite:${cleanCode}`, guestPasscode.trim());
+    }
+    router.push(`/join/${encodeURIComponent(cleanCode)}?${params.toString()}`);
   };
 
   const handleModalCreate = async (e: React.FormEvent) => {
@@ -260,6 +336,7 @@ export function DashboardLayout() {
         throw new Error(data.error || "Failed to create studio session");
       }
       setCreatedInviteUrl(data.inviteUrl);
+      setCreatedGuestPasscode(data.guestPasscode || null);
       setModalTitle("");
       setModalGuestName("");
       setModalPasscode("");
@@ -314,6 +391,49 @@ export function DashboardLayout() {
     0
   );
 
+  if (authConfiguration.status === "loading" || (authStatus === "loading" && authConfiguration.status === "configured")) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0b0e] text-sm text-[#8c94a4]">
+        Checking sign-in setup…
+      </div>
+    );
+  }
+
+  if (!session?.user?.email) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#0a0b0e] p-5 text-[#f3f4f6]">
+        <section className="w-full max-w-md rounded-2xl border border-[#242a36] bg-[#13161c] p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#c0915a] text-[#0a0b0e]">
+            <Radio className="h-6 w-6" />
+          </div>
+          <h1 className="font-heading text-xl font-bold text-white">OneGuest Studio</h1>
+          <p className="mt-2 text-sm text-[#9ca3af]">Sign in with Google to manage your studios and recordings.</p>
+          {authConfiguration.status === "configured" ? (
+            <button
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-[#c0915a] px-5 py-3 text-sm font-bold text-[#0a0b0e] transition-colors hover:bg-[#cf9f67]"
+              onClick={() => signIn("google", { callbackUrl: "/" })}
+              type="button"
+            >
+              <LogIn className="h-4 w-4" />
+              Sign in with Google
+            </button>
+          ) : (
+            <div
+              role="alert"
+              className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left text-xs leading-relaxed text-amber-100"
+            >
+              {authConfiguration.status === "missing"
+                ? `Google sign-in is unavailable. Configure: ${authConfiguration.variables.join(", ")}.`
+                : authConfiguration.status === "error"
+                  ? `Unable to verify sign-in configuration: ${authConfiguration.message}`
+                  : "Checking Google sign-in configuration…"}
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-[#0a0b0e] text-[#f3f4f6] font-sans antialiased">
       {/* 1. RIVERSIDE-STYLE SIDEBAR (Desktop) */}
@@ -340,6 +460,7 @@ export function DashboardLayout() {
             type="button"
             onClick={() => {
               setCreatedInviteUrl(null);
+              setCreatedGuestPasscode(null);
               setCopiedModalLink(false);
               setShowCreateModal(true);
             }}
@@ -504,7 +625,7 @@ export function DashboardLayout() {
                 : activeTab === "recordings"
                 ? "Recording Library"
                 : activeTab === "editor"
-                ? "Studio Editor & AI Clips"
+                ? "Studio Editor"
                 : activeTab === "streaming"
                 ? "RTMP Live Streaming Hub"
                 : "Studio Hardware & Preferences"}
@@ -513,10 +634,23 @@ export function DashboardLayout() {
 
           {/* Top Bar Actions */}
           <div className="flex items-center gap-2.5">
+            <span className="hidden sm:inline max-w-48 truncate text-xs text-[#8c94a4]">
+              {session.user.email}
+            </span>
+            <button
+              aria-label="Sign out"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#242a36] bg-[#14171d] px-3 py-2 text-xs font-semibold text-[#9ca3af] transition-colors hover:text-white"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              type="button"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
             <button
               type="button"
               onClick={() => {
                 setCreatedInviteUrl(null);
+                setCreatedGuestPasscode(null);
                 setCopiedModalLink(false);
                 setShowCreateModal(true);
               }}
@@ -681,6 +815,11 @@ export function DashboardLayout() {
                   </div>
 
                   <form onSubmit={handleLaunchQuickStudio} className="space-y-3.5 pt-1">
+                    {launchError && (
+                      <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-2.5 text-xs text-rose-300">
+                        {launchError}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1">
                         Host Name
@@ -819,6 +958,19 @@ export function DashboardLayout() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1">
+                        Studio Passcode <span className="normal-case font-normal">(if required)</span>
+                      </label>
+                      <input
+                        type="password"
+                        autoComplete="one-time-code"
+                        value={guestPasscode}
+                        onChange={(e) => setGuestPasscode(e.target.value)}
+                        className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white focus:border-[#4c6a92] focus:outline-none font-mono transition-colors"
+                      />
+                    </div>
+
                     <div className="rounded-lg border border-[#1a1e26] bg-[#0a0b0e] p-3 space-y-1 text-xs text-[#8c94a4]">
                       <div className="flex items-center gap-1.5 text-[#d1d5db] font-semibold text-[11px]">
                         <ShieldCheck className="h-3.5 w-3.5 text-[#4c6a92]" />
@@ -911,12 +1063,7 @@ export function DashboardLayout() {
                             <button
                               type="button"
                               onClick={() => {
-                                const params = new URLSearchParams({
-                                  role: "host",
-                                  name: interview.hostName || "Creator Host",
-                                  title: interview.title,
-                                });
-                                router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
+                                router.push(`/studio/${encodeURIComponent(interview.id)}`);
                               }}
                               className="flex-1 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] text-[11px] font-bold py-2 text-center transition-colors cursor-pointer"
                             >
@@ -971,6 +1118,7 @@ export function DashboardLayout() {
                     type="button"
                     onClick={() => {
                       setCreatedInviteUrl(null);
+                      setCreatedGuestPasscode(null);
                       setShowCreateModal(true);
                     }}
                     className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] px-3.5 py-2 text-xs font-bold transition-all cursor-pointer"
@@ -1042,6 +1190,7 @@ export function DashboardLayout() {
                     type="button"
                     onClick={() => {
                       setCreatedInviteUrl(null);
+                      setCreatedGuestPasscode(null);
                       setShowCreateModal(true);
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-4 py-2 text-xs font-bold text-[#0a0b0e] transition-all cursor-pointer"
@@ -1121,12 +1270,7 @@ export function DashboardLayout() {
                           <button
                             type="button"
                             onClick={() => {
-                              const params = new URLSearchParams({
-                                role: "host",
-                                name: interview.hostName || "Creator Host",
-                                title: interview.title,
-                              });
-                              router.push(`/room/${encodeURIComponent(interview.id)}?${params.toString()}`);
+                              router.push(`/studio/${encodeURIComponent(interview.id)}`);
                             }}
                             className="flex-1 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] text-[#0a0b0e] text-[11px] font-bold py-2 text-center transition-colors cursor-pointer"
                           >
@@ -1197,10 +1341,10 @@ export function DashboardLayout() {
                     </div>
                     <div>
                       <h3 className="font-heading text-base font-bold text-white">
-                        Text-Based Studio Editor & AI Magic Clips
+                        Text-Based Studio Editor
                       </h3>
                       <p className="text-xs text-[#8c94a4]">
-                        Edit recordings like a doc, trim video by deleting text, format burned-in captions, and generate viral 9:16 vertical shorts.
+                        Edit an available transcript and preview caption styles. Speech-to-text and rendered video exports are not configured.
                       </p>
                     </div>
                   </div>
@@ -1260,7 +1404,7 @@ export function DashboardLayout() {
                   <div>
                     <h4 className="text-sm font-bold text-white mb-1">No recorded episodes yet</h4>
                     <p className="text-xs text-[#8c94a4] max-w-md mx-auto">
-                      Record a studio episode with your guest to unlock text-based trimming, synchronized subtitle exports, and AI Magic Clips.
+                      Transcript editing requires a supplied transcript. This deployment does not generate transcripts or render edited video exports.
                     </p>
                   </div>
                   <button
@@ -1504,7 +1648,7 @@ export function DashboardLayout() {
                   <span>Studio Session Created!</span>
                 </div>
                 <p className="text-xs text-[#d1d5db] leading-relaxed">
-                  Share this private guest link. The guest can join directly without creating an account:
+                  Share this guest invitation link. Guests can join without creating an account.
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -1536,10 +1680,17 @@ export function DashboardLayout() {
                     )}
                   </button>
                 </div>
+                {createdGuestPasscode && (
+                  <div className="rounded-lg border border-amber-900/60 bg-amber-950/30 p-3 text-xs text-amber-100">
+                    <p className="font-semibold">Share this passcode separately:</p>
+                    <code className="mt-1 block font-mono">{createdGuestPasscode}</code>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     setCreatedInviteUrl(null);
+                    setCreatedGuestPasscode(null);
                     setShowCreateModal(false);
                   }}
                   className="w-full mt-2 rounded-lg bg-[#1a1e26] hover:bg-[#242a36] py-2 text-xs text-[#d1d5db] font-semibold cursor-pointer transition-colors"
@@ -1596,10 +1747,10 @@ export function DashboardLayout() {
                     Optional Passcode
                   </label>
                   <input
-                    type="text"
+                    type="password"
                     value={modalPasscode}
                     onChange={(e) => setModalPasscode(e.target.value)}
-                    placeholder="Leave blank for automatic secure room"
+                    placeholder="Leave blank for an unprotected guest link"
                     className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#c0915a] focus:outline-none font-mono"
                   />
                 </div>

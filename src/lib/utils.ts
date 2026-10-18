@@ -14,6 +14,10 @@ export function generateRoomId(prefix = "studio"): string {
   return `${prefix}-${result}`;
 }
 
+export function isValidRoomId(roomId: string): boolean {
+  return /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(roomId);
+}
+
 export function generateGuestCode(): string {
   const num = Math.floor(100000 + Math.random() * 900000);
   return `OG-${num}`;

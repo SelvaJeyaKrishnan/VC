@@ -255,7 +255,7 @@ export function RecordingsLibrary({ onStartSession }: RecordingsLibraryProps) {
                   <Link
                     href={`/editor/${encodeURIComponent(session.roomId)}`}
                     className="flex items-center gap-1.5 rounded-lg border border-[#c0915a]/40 bg-[#c0915a]/10 hover:bg-[#c0915a]/20 px-3.5 py-2 text-xs font-semibold text-[#cf9f67] transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
-                    title="Open text-based video editor and AI magic clips"
+                    title="Open the text-based video editor"
                   >
                     <Sparkles className="h-3.5 w-3.5 text-[#c0915a]" />
                     <span>Open in Studio Editor</span>

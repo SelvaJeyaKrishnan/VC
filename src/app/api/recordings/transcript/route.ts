@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { recordingStore } from "@/lib/recordingStore";
-import {
-  generateDefaultTranscript,
-  type TranscriptData,
-} from "@/lib/transcriptEngine";
+import { authorizeStudioOwner } from "@/lib/studioAuth";
+import { createEmptyTranscript, type TranscriptData } from "@/lib/transcriptEngine";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +16,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing roomId parameter" }, { status: 400 });
     }
 
+    const authorization = await authorizeStudioOwner(roomId);
+    if (!authorization.authorized) {
+      return NextResponse.json(
+        { error: authorization.status === 401 ? "Sign in to access studio transcripts." : "Studio not found." },
+        { status: authorization.status }
+      );
+    }
+
     const roomDir = recordingStore.getRoomDir(roomId);
     const transcriptPath = path.join(roomDir, "transcript.json");
 
@@ -26,21 +32,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(JSON.parse(content));
     }
 
-    // Generate realistic initial transcript if not already created
     const manifest = recordingStore.getManifest(roomId);
-    const hostTrack = manifest?.tracks.find((t) => t.role === "host");
-    const guestTrack = manifest?.tracks.find((t) => t.role === "guest");
-
-    const defaultTranscript = generateDefaultTranscript({
+    const emptyTranscript = createEmptyTranscript({
       roomId,
-      durationSeconds: manifest?.durationSeconds || 120,
-      hostName: hostTrack?.participantName || "Host",
-      guestName: guestTrack?.participantName || "Guest",
+      durationSeconds: manifest?.durationSeconds || 0,
     });
 
-    fs.writeFileSync(transcriptPath, JSON.stringify(defaultTranscript, null, 2), "utf-8");
+    fs.writeFileSync(transcriptPath, JSON.stringify(emptyTranscript, null, 2), "utf-8");
 
-    return NextResponse.json(defaultTranscript);
+    return NextResponse.json(emptyTranscript);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to load transcript";
     console.error("Transcript GET error:", err);
@@ -55,6 +55,14 @@ export async function POST(req: NextRequest) {
 
     if (!roomId || !transcript) {
       return NextResponse.json({ error: "Missing roomId or transcript" }, { status: 400 });
+    }
+
+    const authorization = await authorizeStudioOwner(roomId);
+    if (!authorization.authorized) {
+      return NextResponse.json(
+        { error: authorization.status === 401 ? "Sign in to edit studio transcripts." : "Studio not found." },
+        { status: authorization.status }
+      );
     }
 
     const roomDir = recordingStore.getRoomDir(roomId);

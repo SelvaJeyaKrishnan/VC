@@ -23,6 +23,7 @@ interface RoomClientProps {
   initialRole?: string;
   initialName?: string;
   initialTitle?: string;
+  initialInviteToken?: string;
 }
 
 export function RoomClient({
@@ -30,6 +31,7 @@ export function RoomClient({
   initialRole,
   initialName,
   initialTitle,
+  initialInviteToken,
 }: RoomClientProps) {
   const router = useRouter();
 
@@ -61,27 +63,6 @@ export function RoomClient({
   const [showPreflight, setShowPreflight] = useState(false);
   const isErrorRef = useRef(false);
 
-  // Fetch session title and guest name from interview store if available
-  useEffect(() => {
-    let isMounted = true;
-    fetch(`/api/interviews/${encodeURIComponent(roomId)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (isMounted && data?.interview) {
-          if (data.interview.title) {
-            setSessionTitle(data.interview.title);
-          }
-          if (!initialName && role === "guest" && data.interview.guestName) {
-            setDisplayName(data.interview.guestName);
-          }
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, [roomId, initialName, role]);
-
   const fetchToken = useCallback(
     async (activeName: string) => {
       setIsLoading(true);
@@ -99,6 +80,11 @@ export function RoomClient({
             identity,
             name: activeName,
             role,
+            passcode:
+              role === "guest" && initialInviteToken
+                ? window.sessionStorage.getItem(`oneguest:invite:${initialInviteToken}`) || undefined
+                : undefined,
+            inviteToken: role === "guest" ? initialInviteToken : undefined,
           }),
         });
 
@@ -116,6 +102,9 @@ export function RoomClient({
         }
 
         setTokenData(data);
+        if (role === "guest" && initialInviteToken) {
+          window.sessionStorage.removeItem(`oneguest:invite:${initialInviteToken}`);
+        }
       } catch (err: unknown) {
         const msg =
           err instanceof Error
@@ -126,7 +115,7 @@ export function RoomClient({
         setIsLoading(false);
       }
     },
-    [roomId, role]
+    [roomId, role, initialInviteToken]
   );
 
   const handleEnterStudio = (settings: {
@@ -155,7 +144,11 @@ export function RoomClient({
       console.warn("Disconnected due to error; retaining error screen.");
       return;
     }
-    router.push(`/?left=true&room=${encodeURIComponent(roomId)}`);
+    if (role === "guest" && initialInviteToken) {
+      router.push(`/join/${encodeURIComponent(initialInviteToken)}?name=${encodeURIComponent(displayName)}`);
+      return;
+    }
+    router.push("/dashboard");
   };
 
   const handleRoomError = (error: Error) => {
@@ -296,7 +289,11 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
               </button>
 
               <Link
-                href="/"
+                href={
+                  role === "guest" && initialInviteToken
+                    ? `/join/${encodeURIComponent(initialInviteToken)}`
+                    : "/dashboard"
+                }
                 className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg border border-[#242a36] bg-[#161a22] px-4 py-2.5 text-xs font-semibold text-[#d1d5db] hover:bg-[#1e2330] hover:text-white transition-colors cursor-pointer"
               >
                 <Home className="h-3.5 w-3.5" />
@@ -316,6 +313,7 @@ LIVEKIT_API_SECRET=sec_yyyyyyyyyyyyyyyyyyyyyyyyyyyy`}
         token={tokenData.token}
         serverUrl={tokenData.serverUrl}
         roomId={roomId}
+        inviteToken={initialInviteToken}
         roomName={sessionTitle}
         role={role}
         videoOptions={

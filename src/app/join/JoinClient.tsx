@@ -1,53 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Radio, Video, ArrowRight, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Radio, Video, ArrowRight, ShieldCheck } from "lucide-react";
 
-export function JoinClient() {
+interface JoinClientProps {
+  initialCode?: string;
+  initialName?: string;
+  initialInviteToken?: string;
+  initialRoomId?: string;
+  initialError?: string;
+}
+
+export function JoinClient({
+  initialCode = "",
+  initialName = "",
+  initialInviteToken = "",
+  initialRoomId = "",
+  initialError,
+}: JoinClientProps) {
   const router = useRouter();
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState(initialCode);
+  const [name, setName] = useState(initialName);
+  const [passcode, setPasscode] = useState("");
+  const [error, setError] = useState<string | null>(
+    initialError === "invalid_invitation"
+      ? "The invitation or studio passcode could not be verified. Check the passcode or ask the host for a new invitation."
+      : null
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!initialInviteToken) return;
+    const savedPasscode = window.sessionStorage.getItem(`oneguest:invite:${initialInviteToken}`);
+    if (savedPasscode) setPasscode(savedPasscode);
+  }, [initialInviteToken]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    let cleanCode = code.trim();
-    if (!cleanCode) {
-      setError("Please enter your studio room code or paste your invitation link.");
+    let token = initialInviteToken;
+    const cleanCode = code.trim();
+    if (!token && cleanCode) {
+      try {
+        const url = new URL(cleanCode);
+        const segments = url.pathname.split("/").filter(Boolean);
+        if (segments[0] === "join" && segments[1]) token = segments[1];
+      } catch {
+        if (/^[A-Za-z0-9_-]{40,}$/.test(cleanCode)) token = cleanCode;
+      }
+    }
+    if (!token) {
+      setError("Use the secure invitation link provided by your host. Studio codes alone cannot join a room.");
       return;
     }
 
-    try {
-      if (cleanCode.startsWith("http://") || cleanCode.startsWith("https://")) {
-        const url = new URL(cleanCode);
-        const queryRoom = url.searchParams.get("room") || url.searchParams.get("code");
-        if (queryRoom) {
-          cleanCode = queryRoom.trim();
-        } else {
-          const segs = url.pathname.split("/").filter(Boolean);
-          if (segs[0] === "room" && segs[1]) {
-            cleanCode = segs[1].trim();
-          }
-        }
-      }
-    } catch {
-      // Not a URL, use raw string
-    }
-
     const cleanName = name.trim() || "Guest Participant";
-    setIsSubmitting(true);
-
     const query = new URLSearchParams({
       role: "guest",
       name: cleanName,
     });
+    if (passcode.trim()) {
+      window.sessionStorage.setItem(`oneguest:invite:${token}`, passcode.trim());
+    }
+    if (!initialInviteToken || !initialRoomId) {
+      setIsSubmitting(true);
+      router.push(`/join/${encodeURIComponent(token)}?${query.toString()}`);
+      return;
+    }
 
-    router.push(`/room/${encodeURIComponent(cleanCode)}?${query.toString()}`);
+    query.set("invitationToken", token);
+    router.push(`/room/${encodeURIComponent(initialRoomId)}?${query.toString()}`);
+    setIsSubmitting(true);
   };
 
   return (
@@ -96,14 +121,15 @@ export function JoinClient() {
           <form onSubmit={handleSubmit} className="space-y-4 pt-1">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1">
-                Studio Code or Invitation Link *
+                {initialInviteToken ? "Invitation link" : "Secure Invitation Link *"}
               </label>
               <input
                 type="text"
-                required
+                required={!initialInviteToken}
+                readOnly={!!initialInviteToken}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="e.g. og-abcdef or paste full invite URL"
+                placeholder="Paste the secure invitation link from your host"
                 className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3.5 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#4c6a92] focus:outline-none font-mono transition-colors"
               />
             </div>
@@ -119,6 +145,19 @@ export function JoinClient() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Sarah Jenkins"
                 className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3.5 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#4c6a92] focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8c94a4] mb-1">
+                Studio Passcode <span className="normal-case font-normal">(if required)</span>
+              </label>
+              <input
+                type="password"
+                autoComplete="one-time-code"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3.5 py-2 text-xs text-white placeholder-[#6b7280] focus:border-[#4c6a92] focus:outline-none font-mono transition-colors"
               />
             </div>
 
@@ -143,16 +182,6 @@ export function JoinClient() {
           </form>
         </div>
 
-        {/* Back Link */}
-        <div className="text-center">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-[#8c94a4] hover:text-[#d1d5db] transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Return to Studio Dashboard</span>
-          </Link>
-        </div>
       </div>
     </div>
   );

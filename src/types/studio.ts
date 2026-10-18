@@ -21,6 +21,9 @@ export type StudioLayoutMode = "split" | "focus" | "grid";
 
 export interface Interview {
   id: string; // roomId
+  inviteToken: string;
+  inviteExpiresAt?: string;
+  ownerEmail?: string;
   title: string;
   hostName: string;
   guestName: string;

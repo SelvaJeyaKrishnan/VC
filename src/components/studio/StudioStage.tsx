@@ -19,15 +19,19 @@ import type { StudioLayoutMode } from "@/types/studio";
 
 interface StudioStageProps {
   roomId: string;
+  inviteToken?: string;
   roomName?: string;
   role?: "host" | "guest";
+  recordingToken: string;
   onLeaveCall?: () => void;
 }
 
 export function StudioStage({
   roomId,
+  inviteToken,
   roomName,
   role: initialRole,
+  recordingToken,
   onLeaveCall,
 }: StudioStageProps) {
   const [layoutMode, setLayoutMode] = useState<StudioLayoutMode>("split");
@@ -35,7 +39,6 @@ export function StudioStage({
   const [copiedLink, setCopiedLink] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [showLiveStreamModal, setShowLiveStreamModal] = useState(false);
-  const [isStreamingLive, setIsStreamingLive] = useState(false);
 
   // Guest disconnect & reconnect tracking
   const [guestDisconnected, setGuestDisconnected] = useState(false);
@@ -91,6 +94,7 @@ export function StudioStage({
     remoteParticipants,
     roomId,
     role,
+    recordingToken,
     displayName: localParticipant?.name || (role === "host" ? "Creator Host" : "Guest"),
   });
 
@@ -132,8 +136,9 @@ export function StudioStage({
   const participantCount = (localParticipant ? 1 : 0) + remoteParticipants.length;
 
   const handleCopyLink = async () => {
+    if (!inviteToken) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const inviteUrl = `${origin}/join?code=${encodeURIComponent(roomId)}`;
+    const inviteUrl = `${origin}/join/${encodeURIComponent(inviteToken)}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopiedLink(true);
@@ -162,15 +167,8 @@ export function StudioStage({
           </div>
         </div>
 
-        {/* Center: Live Studio Session Status / Active Recording / Live Stream Pill */}
+        {/* Center: Live Studio Session Status / Active Recording */}
         <div className="flex items-center gap-2">
-          {isStreamingLive && (
-            <div className="flex items-center gap-1.5 rounded-full border border-rose-500/70 bg-rose-950/80 px-3 py-1 text-xs font-bold text-rose-300 shadow-md animate-pulse">
-              <span className="h-2 w-2 rounded-full bg-rose-500" />
-              <span className="text-[10px] uppercase tracking-wider">LIVE STREAM</span>
-            </div>
-          )}
-
           {isActuallyRecording ? (
             <div className="flex items-center gap-2 rounded-full border border-rose-500/60 bg-rose-950/60 px-3.5 py-1 text-xs font-bold text-rose-300 shadow-md animate-pulse">
               <span className="h-2 w-2 rounded-full bg-rose-500" />
@@ -206,7 +204,7 @@ export function StudioStage({
             <span className="font-mono font-medium">{participantCount} in Studio</span>
           </div>
 
-          <button
+          {role === "host" && inviteToken && <button
             type="button"
             onClick={handleCopyLink}
             className="flex items-center gap-1.5 rounded-md border border-[#242a36] bg-[#14171d] px-2.5 py-1 text-xs font-semibold text-[#d1d5db] hover:text-white hover:bg-[#1a1e26] transition-colors cursor-pointer"
@@ -223,7 +221,7 @@ export function StudioStage({
                 <span className="text-xs">Invite</span>
               </>
             )}
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -324,17 +322,19 @@ export function StudioStage({
               </div>
 
               <h3 className="font-heading text-base sm:text-lg font-bold text-white mb-1">
-                Waiting for Guest to Join
+                {role === "host" ? "Waiting for Guest to Join" : "Waiting for Host to Join"}
               </h3>
               <p className="max-w-sm text-xs text-[#8c94a4] mb-6 leading-relaxed">
-                Your private studio is live. Share this invite link with your interviewee to start the conversation.
+                {role === "host"
+                  ? "Your private studio is live. Share this invitation link with your interviewee to start the conversation."
+                  : "Your connection is ready. The host will join the studio shortly."}
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-sm">
+              {role === "host" && inviteToken && <div className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-sm">
                 <input
                   type="text"
                   readOnly
-                  value={typeof window !== "undefined" ? `${window.location.origin}/join?code=${roomId}` : roomId}
+                  value={typeof window !== "undefined" && inviteToken ? `${window.location.origin}/join/${inviteToken}` : ""}
                   className="w-full rounded-lg border border-[#242a36] bg-[#0c0e12] px-3.5 py-2 text-xs font-mono text-[#cf9f67] focus:outline-none"
                 />
                 <button
@@ -354,7 +354,7 @@ export function StudioStage({
                     </>
                   )}
                 </button>
-              </div>
+              </div>}
             </div>
           </div>
         ) : (
@@ -372,7 +372,7 @@ export function StudioStage({
       <footer className="shrink-0 p-3 sm:p-5 z-20">
         <div className="mx-auto max-w-4xl">
           <MediaControls
-            roomId={roomId}
+            inviteToken={inviteToken}
             layoutMode={layoutMode}
             onLayoutChange={setLayoutMode}
             onLeaveCall={onLeaveCall}
@@ -381,18 +381,14 @@ export function StudioStage({
             role={role}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
-            isStreamingLive={isStreamingLive}
             onOpenLiveStream={() => setShowLiveStreamModal(true)}
           />
         </div>
       </footer>
 
-      {/* RTMP Multi-Destination Live Streaming Modal */}
       <LiveStreamModal
-        roomId={roomId}
         isOpen={showLiveStreamModal}
         onClose={() => setShowLiveStreamModal(false)}
-        onStreamStateChange={setIsStreamingLive}
       />
     </div>
   );

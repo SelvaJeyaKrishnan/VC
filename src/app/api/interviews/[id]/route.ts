@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { interviewStore } from "@/lib/interviewStore";
+import { authorizeStudioOwner } from "@/lib/studioAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +11,11 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const interview = interviewStore.getById(id);
-
-    if (!interview) {
-      return NextResponse.json(
-        { error: "Interview session not found or link has expired." },
-        { status: 404 }
-      );
+    const authorization = await authorizeStudioOwner(id);
+    if (!authorization.authorized) {
+      return NextResponse.json({ error: "Studio not found." }, { status: authorization.status });
     }
+    const interview = authorization.interview;
 
     return NextResponse.json({
       interview: {
@@ -38,6 +36,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const authorization = await authorizeStudioOwner(id);
+    if (!authorization.authorized) {
+      return NextResponse.json(
+        { error: authorization.status === 401 ? "Sign in to delete this studio." : "Studio not found." },
+        { status: authorization.status }
+      );
+    }
+
     const deleted = interviewStore.delete(id);
     if (!deleted) {
       return NextResponse.json({ error: "Interview not found" }, { status: 404 });

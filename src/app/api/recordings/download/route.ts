@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordingStore } from "@/lib/recordingStore";
 import fs from "fs";
+import { authorizeStudioOwner } from "@/lib/studioAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,14 @@ export async function GET(req: NextRequest) {
 
     if (!roomId || !file) {
       return NextResponse.json({ error: "Missing roomId or file query param" }, { status: 400 });
+    }
+
+    const authorization = await authorizeStudioOwner(roomId);
+    if (!authorization.authorized) {
+      return NextResponse.json(
+        { error: authorization.status === 401 ? "Sign in to access recordings." : "Recording not found." },
+        { status: authorization.status }
+      );
     }
 
     const filePath = recordingStore.getTrackFilePath(roomId, file);
@@ -42,7 +51,7 @@ export async function GET(req: NextRequest) {
         "Content-Length": stat.size.toString(),
         "Content-Disposition": disposition,
         "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (err: unknown) {

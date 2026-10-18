@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { isValidRoomId } from "./utils.ts";
 
 export interface RecordingTrack {
   participantIdentity: string;
@@ -58,7 +59,15 @@ function ensureDirectoryExists(dir: string) {
 
 export const recordingStore = {
   getRoomDir(roomId: string): string {
-    const dir = path.join(/*turbopackIgnore: true*/ RECORDINGS_DIR, roomId);
+    if (!isValidRoomId(roomId)) {
+      throw new Error("Invalid recording room ID.");
+    }
+
+    const baseDir = path.resolve(/*turbopackIgnore: true*/ RECORDINGS_DIR);
+    const dir = path.resolve(baseDir, roomId);
+    if (!dir.startsWith(`${baseDir}${path.sep}`)) {
+      throw new Error("Recording room path is outside the storage directory.");
+    }
     ensureDirectoryExists(dir);
     return dir;
   },

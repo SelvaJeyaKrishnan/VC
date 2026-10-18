@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateRoomId, generateGuestCode, getInitials, cn } from "../src/lib/utils.ts";
+import { generateRoomId, generateGuestCode, getInitials, cn, isValidRoomId } from "../src/lib/utils.ts";
 
 test("generateRoomId produces valid prefixed studio room IDs", () => {
   const defaultRoom = generateRoomId();
@@ -21,6 +21,13 @@ test("generateRoomId produces valid prefixed studio room IDs", () => {
 test("generateGuestCode produces 6-digit formatted OneGuest code", () => {
   const code = generateGuestCode();
   assert.match(code, /^OG-\d{6}$/);
+});
+
+test("isValidRoomId rejects path and URL control characters", () => {
+  assert.strictEqual(isValidRoomId("studio-og-123"), true);
+  assert.strictEqual(isValidRoomId("../outside"), false);
+  assert.strictEqual(isValidRoomId("C:\\outside"), false);
+  assert.strictEqual(isValidRoomId("room?admin=true"), false);
 });
 
 test("getInitials computes correct user initials", () => {

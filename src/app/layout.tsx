@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Sans } from "next/font/google";
 import "./globals.css";
+import { SessionProvider } from "@/components/auth/SessionProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${inter.variable} ${instrumentSans.variable}`}>
       <body className="min-h-screen bg-[#0a0b0e] text-[#f3f4f6] font-sans antialiased selection:bg-[#c0915a]/30 selection:text-[#fae8d4]">
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );

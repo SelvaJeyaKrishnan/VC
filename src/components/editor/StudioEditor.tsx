@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Play,
   Pause,
   RotateCcw,
   RotateCw,
-  Sparkles,
   Download,
   FileText,
   Subtitles,
@@ -21,7 +20,6 @@ import {
   Tv,
   Layers,
   Clock,
-  X,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -30,7 +28,6 @@ import {
   type TranscriptData,
   type TranscriptWord,
   type TranscriptParagraph,
-  type MagicClip,
   type EditorCut,
   generateSRT,
   generatePlainText,
@@ -68,12 +65,6 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
   // Styling & presentation modes
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>("16:9");
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("karaoke");
-
-  // Magic Clips modal
-  const [showMagicClips, setShowMagicClips] = useState(false);
-  const [magicClips, setMagicClips] = useState<MagicClip[]>([]);
-  const [isLoadingClips, setIsLoadingClips] = useState(false);
-  const [activeClip, setActiveClip] = useState<MagicClip | null>(null);
 
   // Export dropdown
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -133,22 +124,6 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
     };
   }, [roomId]);
 
-  // Load Magic Clips
-  const loadMagicClips = useCallback(async () => {
-    try {
-      setIsLoadingClips(true);
-      const res = await fetch(`/api/recordings/clips?roomId=${encodeURIComponent(roomId)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMagicClips(data.clips || []);
-      }
-    } catch (e) {
-      console.error("Error loading clips:", e);
-    } finally {
-      setIsLoadingClips(false);
-    }
-  }, [roomId]);
-
   // Handle video time updates & skip cut zones
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
@@ -165,11 +140,6 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
       }
     }
 
-    // If active clip preview is playing and reaches end, pause or loop
-    if (activeClip && time >= activeClip.end) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
   };
 
   const handleLoadedMetadata = () => {
@@ -334,13 +304,6 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
     setShowExportMenu(false);
   };
 
-  const previewMagicClip = (clip: MagicClip) => {
-    setActiveClip(clip);
-    setAspectRatio("9:16");
-    seekTo(clip.start);
-    setShowMagicClips(false);
-  };
-
   const formatTimecode = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -438,21 +401,14 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
           </div>
         </div>
 
-        {/* Right: Magic Clips & Export Actions */}
+        {/* Export Actions */}
         <div className="flex items-center gap-2">
-          {/* AI Magic Clips Trigger */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowMagicClips(true);
-              if (magicClips.length === 0) loadMagicClips();
-            }}
-            className="flex items-center gap-1.5 rounded-lg border border-[#c0915a]/40 bg-[#c0915a]/10 hover:bg-[#c0915a]/20 px-3 py-1.5 text-xs font-semibold text-[#cf9f67] transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
-            title="Generate AI Magic Clips"
+          <span
+            className="hidden sm:inline text-xs text-[#8c94a4]"
+            title="Transcript highlights require a transcription service, which is not configured."
           >
-            <Sparkles className="h-3.5 w-3.5 text-[#c0915a]" />
-            <span className="hidden sm:inline">Magic Clips</span>
-          </button>
+            Highlights unavailable
+          </span>
 
           {/* Export Menu Dropdown */}
           <div className="relative">
@@ -542,7 +498,7 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
             {isLoadingTranscript ? (
               <div className="flex flex-col items-center justify-center h-48 text-[#8c94a4] gap-2">
                 <div className="h-5 w-5 border-2 border-[#c0915a] border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs">Generating speech transcript...</span>
+                <span className="text-xs">Loading transcript...</span>
               </div>
             ) : transcript?.paragraphs && transcript.paragraphs.length > 0 ? (
               transcript.paragraphs.map((para) => (
@@ -595,7 +551,7 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
               ))
             ) : (
               <div className="text-center py-12 text-xs text-[#8c94a4]">
-                No transcript available for this recording session.
+                No transcript is available. This deployment does not include a speech-to-text service.
               </div>
             )}
           </div>
@@ -684,20 +640,6 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
                   </div>
                 )}
 
-                {/* Floating Active Clip Indicator */}
-                {activeClip && (
-                  <div className="absolute top-3 left-3 bg-[#c0915a] text-[#0a0b0e] px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 shadow-md">
-                    <Sparkles className="h-3 w-3" />
-                    <span>Clip: {activeClip.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveClip(null)}
-                      className="ml-1 hover:text-black"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="text-center text-xs text-[#8c94a4]">
@@ -881,100 +823,6 @@ export function StudioEditor({ roomId }: StudioEditorProps) {
         </section>
       </div>
 
-      {/* AI Magic Clips Drawer / Modal */}
-      {showMagicClips && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-[#242a36] bg-[#0f1115] p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#c0915a]/20 text-[#c0915a]">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-white text-base">
-                    AI Magic Clips
-                  </h3>
-                  <p className="text-xs text-[#8c94a4]">
-                    High-engagement moments detected and cropped into 9:16 vertical shorts.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowMagicClips(false)}
-                className="p-1 rounded text-[#8c94a4] hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {isLoadingClips ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3 text-xs text-[#8c94a4]">
-                <div className="h-6 w-6 border-2 border-[#c0915a] border-t-transparent rounded-full animate-spin" />
-                <span>Scanning transcript and audio dynamics for viral hooks...</span>
-              </div>
-            ) : magicClips.length > 0 ? (
-              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                {magicClips.map((clip) => (
-                  <div
-                    key={clip.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#1f242e] bg-[#14171d] hover:border-[#c0915a]/50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="rounded bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                          {clip.viralityScore}% Virality Score
-                        </span>
-                        <span className="text-[11px] font-mono text-[#8c94a4]">
-                          {clip.duration}s ({formatTimecode(clip.start)} - {formatTimecode(clip.end)})
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-white mb-1">{clip.title}</h4>
-                      <p className="text-xs text-[#8c94a4] italic line-clamp-2">
-                        &quot;{clip.quote}&quot;
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-2">
-                        {clip.tags.map((t) => (
-                          <span key={t} className="text-[10px] text-[#cf9f67] font-mono">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => previewMagicClip(clip)}
-                        className="flex items-center gap-1.5 rounded-lg border border-[#242a36] bg-[#1a1e26] hover:bg-[#242a36] px-3 py-1.5 text-xs font-semibold text-white transition-colors cursor-pointer"
-                      >
-                        <Play className="h-3 w-3" />
-                        <span>Preview 9:16</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          previewMagicClip(clip);
-                          downloadVideo();
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg bg-[#c0915a] hover:bg-[#cf9f67] px-3 py-1.5 text-xs font-bold text-[#0a0b0e] transition-colors cursor-pointer"
-                      >
-                        <Download className="h-3 w-3" />
-                        <span>Export Short</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-xs text-[#8c94a4]">
-                No clips generated yet. Click &quot;Scan Transcript&quot; to detect highlights.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

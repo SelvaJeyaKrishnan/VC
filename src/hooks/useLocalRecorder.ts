@@ -5,6 +5,7 @@ import {
   Room,
   RoomEvent,
   Track,
+  type Participant,
   type LocalParticipant,
   type RemoteParticipant,
 } from "livekit-client";
@@ -35,6 +36,7 @@ interface UseLocalRecorderProps {
   remoteParticipants?: RemoteParticipant[];
   roomId: string;
   role: "host" | "guest";
+  recordingToken: string;
   displayName: string;
 }
 
@@ -66,6 +68,7 @@ export function useLocalRecorder({
   remoteParticipants = [],
   roomId,
   role,
+  recordingToken,
   displayName,
 }: UseLocalRecorderProps) {
   const [status, setStatus] = useState<RecordingStatus>("idle");
@@ -142,6 +145,7 @@ export function useLocalRecorder({
 
         const res = await fetch("/api/recordings/upload", {
           method: "POST",
+          headers: { Authorization: `Bearer ${recordingToken}` },
           body: formData,
         });
 
@@ -328,50 +332,14 @@ export function useLocalRecorder({
           });
         }
 
-        // Track 3+: All Guest / Co-Host Video & Audio tracks
+        // Composite mix uses remote tracks only for the optional preview deliverable.
         const activeMicTracks: MediaStreamTrack[] = [];
         if (hostMicTrack) activeMicTracks.push(hostMicTrack);
 
-        const compositeVideoElements: { el: HTMLVideoElement; x: number; y: number; w: number; h: number }[] = [];
-
-        remoteList.forEach((guestP, idx) => {
-          const guestCam = extractMediaStreamTrack(guestP, Track.Source.Camera);
+        remoteList.forEach((guestP) => {
           const guestMic = extractMediaStreamTrack(guestP, Track.Source.Microphone);
-          const rawIdentity = guestP.identity || `guest-${idx + 1}`;
-          const safeIdentity = rawIdentity.replace(/[^a-zA-Z0-9_-]/g, "");
-          const guestName = guestP.name || (remoteList.length === 1 ? "Guest" : `Guest ${idx + 1}`);
-
-          // For 1 guest, use standard 'guest-video' & 'guest-audio' for exact test/backward compatibility
-          const idPrefix = remoteList.length === 1 ? "guest" : `guest-${safeIdentity}`;
-          const filePrefix = remoteList.length === 1 ? "guest" : `guest-${safeIdentity}`;
-
-          if (guestCam) {
-            startSingleTrackRecorder({
-              id: `${idPrefix}-video`,
-              label: `${guestName} Video`,
-              role: "guest",
-              trackType: "video",
-              fileName: `${filePrefix}-video.${vExt}`,
-              participantIdentity: rawIdentity,
-              participantName: guestName,
-              stream: new MediaStream([guestCam]),
-              mimeType: codecs.videoMimeType,
-            });
-          }
-
           if (guestMic) {
             activeMicTracks.push(guestMic);
-            startSingleTrackRecorder({
-              id: `${idPrefix}-audio`,
-              label: `${guestName} Audio`,
-              role: "guest",
-              trackType: "audio",
-              fileName: `${filePrefix}-audio.${aExt}`,
-              participantIdentity: rawIdentity,
-              participantName: guestName,
-              stream: new MediaStream([guestMic]),
-              mimeType: codecs.audioMimeType,
-            });
           }
         });
 
@@ -504,10 +472,13 @@ export function useLocalRecorder({
   );
 
   // Start Local Recording (Guest Side Tap)
-  const startGuestLocalRecording = useCallback(() => {
+  const startGuestLocalRecording = useCallback((recordingStartTimestamp?: number) => {
+    if (recordersRef.current.size > 0) {
+      return;
+    }
+
     try {
       setErrorMessage(null);
-      recordersRef.current.clear();
 
       const camTrack = extractMediaStreamTrack(localParticipant, Track.Source.Camera);
       const micTrack = extractMediaStreamTrack(localParticipant, Track.Source.Microphone);
@@ -520,21 +491,20 @@ export function useLocalRecorder({
       const identity = localParticipant?.identity || "guest";
       const name = localParticipant?.name || displayName || "Guest";
 
-      startTimeRef.current = Date.now();
-      sessionStartEpochRef.current = performance.now();
-
-      const safeId = identity.replace(/[^a-zA-Z0-9_-]/g, "");
-      const isGeneric = safeId === "guest" || safeId === "";
-      const vidFileName = isGeneric ? `guest-video.${vExt}` : `guest-${safeId}-video.${vExt}`;
-      const audFileName = isGeneric ? `guest-audio.${aExt}` : `guest-${safeId}-audio.${aExt}`;
+      const startDelayMs =
+        recordingStartTimestamp && Number.isFinite(recordingStartTimestamp)
+          ? Math.max(0, Date.now() - recordingStartTimestamp)
+          : 0;
+      startTimeRef.current = Date.now() - startDelayMs;
+      sessionStartEpochRef.current = performance.now() - startDelayMs;
 
       if (camTrack) {
         startSingleTrackRecorder({
-          id: isGeneric ? "guest-video" : `guest-${safeId}-video`,
+          id: "guest-video",
           label: `${name} Video`,
           role: "guest",
           trackType: "video",
-          fileName: vidFileName,
+          fileName: `guest-video.${vExt}`,
           participantIdentity: identity,
           participantName: name,
           stream: new MediaStream([camTrack]),
@@ -544,11 +514,11 @@ export function useLocalRecorder({
 
       if (micTrack) {
         startSingleTrackRecorder({
-          id: isGeneric ? "guest-audio" : `guest-${safeId}-audio`,
+          id: "guest-audio",
           label: `${name} Audio`,
           role: "guest",
           trackType: "audio",
-          fileName: audFileName,
+          fileName: `guest-audio.${aExt}`,
           participantIdentity: identity,
           participantName: name,
           stream: new MediaStream([micTrack]),
@@ -566,6 +536,8 @@ export function useLocalRecorder({
       }, 1000);
     } catch (err) {
       console.error("Failed to start guest local recording:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to start guest recording.");
+      setStatus("error");
     }
   }, [localParticipant, displayName, startSingleTrackRecorder, updateTracksState]);
 
@@ -705,12 +677,21 @@ export function useLocalRecorder({
   // Broadcast coordinated recording signal to guest (Option A coordination)
   const broadcastRecordingCommand = useCallback(
     async (action: "START" | "STOP", forceSolo = false) => {
+      const signal: RecordingDataMessage = {
+        type: "RECORDING_SIGNAL",
+        action,
+        timestamp: Date.now(),
+      };
+
+      if (action === "START") {
+        if (role === "host") {
+          startHostMultiTrackRecording(forceSolo);
+        } else {
+          startGuestLocalRecording(signal.timestamp);
+        }
+      }
+
       try {
-        const signal: RecordingDataMessage = {
-          type: "RECORDING_SIGNAL",
-          action,
-          timestamp: Date.now(),
-        };
         const encoder = new TextEncoder();
         const data = encoder.encode(JSON.stringify(signal));
 
@@ -720,13 +701,7 @@ export function useLocalRecorder({
         console.warn("Failed to broadcast recording data signal to remote participants:", err);
       }
 
-      if (action === "START") {
-        if (role === "host") {
-          startHostMultiTrackRecording(forceSolo);
-        } else {
-          startGuestLocalRecording();
-        }
-      } else {
+      if (action === "STOP") {
         stopAllRecordings();
       }
     },
@@ -735,15 +710,17 @@ export function useLocalRecorder({
 
   // Listen for recording commands from remote host (for Guest browser)
   useEffect(() => {
-    const handleDataReceived = (payload: Uint8Array) => {
+    const handleDataReceived = (payload: Uint8Array, participant?: Participant) => {
+      if (role !== "guest" || !participant?.identity?.toLowerCase().startsWith("host-")) {
+        return;
+      }
+
       try {
         const decoder = new TextDecoder();
-        const parsed = JSON.parse(decoder.decode(payload));
-        if (parsed.type === "RECORDING_SIGNAL") {
+        const parsed = JSON.parse(decoder.decode(payload)) as Partial<RecordingDataMessage>;
+        if (parsed.type === "RECORDING_SIGNAL" && Number.isFinite(parsed.timestamp)) {
           if (parsed.action === "START") {
-            if (role === "guest") {
-              startGuestLocalRecording();
-            }
+            startGuestLocalRecording(parsed.timestamp);
           } else if (parsed.action === "STOP") {
             stopAllRecordings();
           }
@@ -759,82 +736,36 @@ export function useLocalRecorder({
     };
   }, [room, role, startGuestLocalRecording, stopAllRecordings]);
 
-  // Handle participant join / track subscription while recording is active (Late-Join handling)
+  // A late-joining guest receives the same start signal and records its own source tracks.
   useEffect(() => {
     if (status !== "recording" || role !== "host") return;
 
-    const handleTrackSubscribed = (track: any, publication: any, participant: RemoteParticipant) => {
-      // If guest joined or unmuted camera/mic after recording started
-      const codecs = detectSupportedCodecs();
-      const vExt = codecs.videoExtension;
-      const aExt = codecs.audioExtension;
-      const guestIdentity = participant.identity || "guest";
-      const guestName = participant.name || "Guest";
+    const handleParticipantConnected = (participant: RemoteParticipant) => {
+      if (!participant.identity.toLowerCase().startsWith("guest-")) return;
 
-      if (track.source === Track.Source.Camera && !recordersRef.current.has("guest-video")) {
-        const camTrack = track.mediaStreamTrack;
-        if (camTrack) {
-          startSingleTrackRecorder({
-            id: "guest-video",
-            label: "Guest Video",
-            role: "guest",
-            trackType: "video",
-            fileName: `guest-video.${vExt}`,
-            participantIdentity: guestIdentity,
-            participantName: guestName,
-            stream: new MediaStream([camTrack]),
-            mimeType: codecs.videoMimeType,
-          });
-          setWarningMessage("Guest camera track subscribed. Recording guest video now.");
-        }
-      }
-
-      if (track.source === Track.Source.Microphone && !recordersRef.current.has("guest-audio")) {
-        const micTrack = track.mediaStreamTrack;
-        if (micTrack) {
-          startSingleTrackRecorder({
-            id: "guest-audio",
-            label: "Guest Audio",
-            role: "guest",
-            trackType: "audio",
-            fileName: `guest-audio.${aExt}`,
-            participantIdentity: guestIdentity,
-            participantName: guestName,
-            stream: new MediaStream([micTrack]),
-            mimeType: codecs.audioMimeType,
-          });
-          setWarningMessage("Guest microphone track subscribed. Recording guest audio now.");
-        }
-      }
+      const signal: RecordingDataMessage = {
+        type: "RECORDING_SIGNAL",
+        action: "START",
+        timestamp: startTimeRef.current,
+      };
+      const data = new TextEncoder().encode(JSON.stringify(signal));
+      room.localParticipant
+        .publishData(data, {
+          reliable: true,
+          destinationIdentities: [participant.identity],
+        })
+        .catch((err: unknown) => {
+          console.error("Failed to start recording for late-joining guest:", err);
+          setWarningMessage("The late-joining guest did not receive the recording start signal.");
+        });
     };
 
-    const handleParticipantDisconnected = (participant: RemoteParticipant) => {
-      // If guest disconnects during recording, stop their recorders and preserve chunks
-      const gVideo = recordersRef.current.get("guest-video");
-      if (gVideo && gVideo.mediaRecorder.state === "recording") {
-        try {
-          gVideo.mediaRecorder.stop();
-        } catch {}
-      }
-      const gAudio = recordersRef.current.get("guest-audio");
-      if (gAudio && gAudio.mediaRecorder.state === "recording") {
-        try {
-          gAudio.mediaRecorder.stop();
-        } catch {}
-      }
-      setWarningMessage(
-        `Guest (${participant.name || participant.identity}) disconnected. Guest recording preserved up to disconnect.`
-      );
-    };
-
-    room.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
-    room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+    room.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
 
     return () => {
-      room.off(RoomEvent.TrackSubscribed, handleTrackSubscribed);
-      room.off(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+      room.off(RoomEvent.ParticipantConnected, handleParticipantConnected);
     };
-  }, [status, role, room, startSingleTrackRecorder]);
+  }, [status, role, room]);
 
   // Warn before closing browser tab during recording or upload
   useEffect(() => {

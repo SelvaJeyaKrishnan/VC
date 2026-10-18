@@ -8,6 +8,7 @@ interface StudioRoomProps {
   token: string;
   serverUrl: string;
   roomId: string;
+  inviteToken?: string;
   roomName?: string;
   role?: "host" | "guest";
   videoOptions?: boolean | { deviceId?: string };
@@ -21,6 +22,7 @@ export function StudioRoom({
   token,
   serverUrl,
   roomId,
+  inviteToken,
   roomName,
   role = "guest",
   videoOptions,
@@ -62,8 +64,10 @@ export function StudioRoom({
       {/* Main Studio Interactive Stage */}
       <StudioStage
         roomId={roomId}
+        inviteToken={inviteToken}
         roomName={roomName}
         role={role}
+        recordingToken={token}
         onLeaveCall={onDisconnected}
       />
     </LiveKitRoom>

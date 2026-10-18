@@ -32,7 +32,7 @@ import type { StudioLayoutMode } from "@/types/studio";
 import type { RecordingStatus } from "@/hooks/useLocalRecorder";
 
 interface MediaControlsProps {
-  roomId: string;
+  inviteToken?: string;
   layoutMode: StudioLayoutMode;
   onLayoutChange: (mode: StudioLayoutMode) => void;
   onLeaveCall?: () => void;
@@ -42,12 +42,11 @@ interface MediaControlsProps {
   role?: "host" | "guest";
   onStartRecording?: () => void;
   onStopRecording?: () => void;
-  isStreamingLive?: boolean;
   onOpenLiveStream?: () => void;
 }
 
 export function MediaControls({
-  roomId,
+  inviteToken,
   layoutMode,
   onLayoutChange,
   onLeaveCall,
@@ -57,7 +56,6 @@ export function MediaControls({
   role = "host",
   onStartRecording,
   onStopRecording,
-  isStreamingLive = false,
   onOpenLiveStream,
 }: MediaControlsProps) {
   const room = useRoomContext();
@@ -212,8 +210,9 @@ export function MediaControls({
   };
 
   const copyInviteLink = async () => {
+    if (!inviteToken) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const inviteUrl = `${origin}/join?code=${encodeURIComponent(roomId)}`;
+    const inviteUrl = `${origin}/join/${encodeURIComponent(inviteToken)}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
@@ -244,7 +243,7 @@ export function MediaControls({
         <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2.5">
           <ConnectionStatusBadge />
 
-          <button
+          {role === "host" && inviteToken && <button
             type="button"
             onClick={copyInviteLink}
             className="flex items-center gap-1.5 rounded-lg border border-[#242a36] bg-[#14171d] px-3 py-1.5 text-xs font-semibold text-[#d1d5db] hover:text-white hover:bg-[#1a1e26] transition-colors cursor-pointer"
@@ -261,7 +260,7 @@ export function MediaControls({
                 <span>Invite Guest</span>
               </>
             )}
-          </button>
+          </button>}
         </div>
 
         {/* Center Section: Primary Recording Toolbar */}
@@ -411,21 +410,16 @@ export function MediaControls({
             )
           )}
 
-          {/* RTMP Live Streaming Trigger (Host Only) */}
+          {/* Live streaming setup status (Host Only) */}
           {role === "host" && onOpenLiveStream && (
             <button
               type="button"
               onClick={onOpenLiveStream}
-              className={cn(
-                "hidden sm:flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer",
-                isStreamingLive
-                  ? "border-rose-500 bg-rose-950/70 text-rose-300 animate-pulse"
-                  : "border-[#242a36] bg-[#14171d] text-[#8c94a4] hover:bg-[#1c202a] hover:text-white"
-              )}
-              title="Configure Multi-Destination Live Stream (YouTube, Twitch, Facebook, Custom RTMP)"
+              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[#242a36] bg-[#14171d] px-3 py-2 text-xs font-semibold text-[#8c94a4] transition-colors hover:bg-[#1c202a] hover:text-white"
+              title="View live streaming requirements"
             >
               <Radio className="h-3.5 w-3.5" />
-              <span>{isStreamingLive ? "Live" : "Stream"}</span>
+              <span>Stream setup</span>
             </button>
           )}
 

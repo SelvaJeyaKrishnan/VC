@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { evaluateGoogleHostAuthorization } from "@/lib/googleHostAuthorization";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,20 +13,19 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   callbacks: {
     async signIn({ profile }) {
-      const authorizedHostEmail = process.env.AUTHORIZED_HOST_EMAIL?.trim().toLowerCase();
-      if (
-        !authorizedHostEmail ||
-        !profile ||
-        typeof profile.email !== "string" ||
-        !("email_verified" in profile)
-      ) {
-        return false;
+      const result = evaluateGoogleHostAuthorization(profile, process.env.AUTHORIZED_HOST_EMAIL);
+      if (!result.authorized) {
+        console.warn("Google host sign-in denied by access policy.", {
+          reason: result.reason,
+        });
       }
-      return (
-        profile.email.length > 0 &&
-        profile.email.trim().toLowerCase() === authorizedHostEmail &&
-        profile.email_verified === true
-      );
+      return result.authorized;
+    },
+    async session({ session, token }) {
+      if (session.user && typeof token.email === "string") {
+        session.user.email = token.email;
+      }
+      return session;
     },
   },
 };

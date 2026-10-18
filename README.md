@@ -93,6 +93,8 @@ AUTHORIZED_HOST_EMAIL=selva72007@gmail.com
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+If `.env.local` already exists, preserve its LiveKit settings and add the local authentication settings above. This file is ignored by Git. Use the local OAuth client credentials and a fresh local session secret; do not copy a secret that has been shared publicly.
+
 Create a Google OAuth client with application type **Web application**. Add `http://localhost:3000` as an authorized JavaScript origin and `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI for local development. `AUTHORIZED_HOST_EMAIL` is the one exact Google account permitted to sign in; the account must have a verified email. Generate `NEXTAUTH_SECRET` with a cryptographically secure random value, such as `openssl rand -base64 32`. Keep the client secret and session secret server-side; never put them in `NEXT_PUBLIC_*` variables or source control.
 
 Legacy interviews created before ownership was added have no owner recorded. They remain inaccessible until `LEGACY_DATA_OWNER_EMAIL` is set to the exact Google account email that should own those records. This assigns all ownerless legacy interviews to that account; omit the variable if that is not appropriate.
@@ -150,11 +152,11 @@ This repository includes a [`render.yaml`](render.yaml) Blueprint configuration 
    - `GOOGLE_CLIENT_SECRET`: the secret paired with that client ID.
    - `AUTHORIZED_HOST_EMAIL`: the exact, verified Google account email allowed to manage this installation.
    - `NEXTAUTH_SECRET`: a newly generated, high-entropy secret (for example, `openssl rand -base64 32`).
-   - `NEXTAUTH_URL`: the service's public HTTPS origin, such as `https://oneguest-studio.onrender.com` (no callback path or trailing slash).
-   - `NEXT_PUBLIC_APP_URL`: the same public HTTPS origin, used to generate shareable invitation URLs.
+   - `NEXTAUTH_URL`: `https://vc-vu80.onrender.com` (no callback path or trailing slash).
+   - `NEXT_PUBLIC_APP_URL`: `https://vc-vu80.onrender.com`, used to generate shareable invitation URLs.
    - `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`: the matching server-side LiveKit project credentials.
    - `LEGACY_DATA_OWNER_EMAIL` only if ownerless legacy studios should be assigned to the authorized host; leave it unset otherwise.
-6. In **Google Cloud Console → APIs & Services → Credentials → your OAuth 2.0 Web client**, register this exact **Authorized redirect URI**: `https://<your-render-service>.onrender.com/api/auth/callback/google` (replace the host with the actual `NEXTAUTH_URL`). For a custom domain, register that domain's corresponding `/api/auth/callback/google` URI too. The OAuth consent screen must allow the host account to authenticate.
+6. In **Google Cloud Console → APIs & Services → Credentials → your OAuth 2.0 Web client**, register this exact **Authorized redirect URI**: `https://vc-vu80.onrender.com/api/auth/callback/google`. For a custom domain, register that domain's corresponding `/api/auth/callback/google` URI too. The OAuth consent screen must allow the host account to authenticate.
 7. Save the variables and deploy/redeploy the service. Never share OAuth secrets in chat or commit them to GitHub.
 
 Render will install dependencies, build the app, verify `/api/health`, and launch the service. Authentication and owner-based authorization are implemented, but the included free service does not configure a persistent disk or cloud media store; recordings and interview metadata can be lost on redeploy or restart. Do not store irreplaceable recordings until durable storage is configured and tested.

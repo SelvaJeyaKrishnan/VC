@@ -39,6 +39,12 @@ export function HostLogin() {
 
   const authError = searchParams.get("error");
   const signInEnabled = !configuration.loading && configuration.missing.length === 0;
+  const authErrorMessage =
+    authError === "AccessDenied"
+      ? "This Google account was not accepted for host access. Use the verified account configured as AUTHORIZED_HOST_EMAIL."
+      : authError
+        ? "Google sign-in could not complete. Check the Render service logs and OAuth redirect URI configuration."
+        : null;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0a0b0e] p-5 text-[#f3f4f6]">
@@ -48,9 +54,9 @@ export function HostLogin() {
         </div>
         <h1 className="font-heading text-xl font-bold text-white">OneGuest Studio</h1>
         <p className="mt-2 text-sm text-[#9ca3af]">Host sign-in is required to manage studios and recordings.</p>
-        {authError && (
+        {authErrorMessage && (
           <p role="alert" className="mt-4 rounded-lg border border-rose-700/50 bg-rose-950/30 p-3 text-xs text-rose-200">
-            Sign-in failed or this Google account is not authorized. Sign in with the configured host account.
+            {authErrorMessage}
           </p>
         )}
         {configuration.loading ? (
